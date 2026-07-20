@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1360" viewBox="0 0 900 1360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ecfdf5"/>
+      <stop offset="45%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="900" height="1360" fill="url(#bg)"/>
+  <circle cx="780" cy="120" r="160" fill="#14b8a6" opacity="0.08"/>
+  <circle cx="80" cy="1180" r="180" fill="#0f766e" opacity="0.06"/>
+
+  <rect x="40" y="36" width="820" height="200" rx="24" fill="url(#hero)"/>
+  <text x="70" y="85" fill="#ecfdf5" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="34" font-weight="700">智慧社区 · 任务清单</text>
+  <text x="70" y="120" fill="#99f6e4" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="15">项目推进日报 · 2026.07.19 — 2026.07.20</text>
+  <rect x="70" y="138" width="120" height="5" rx="2" fill="#5eead4"/>
+
+  <text x="70" y="175" fill="#ccfbf1" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="13">项目成员</text>
+  <rect x="70" y="188" width="120" height="32" rx="16" fill="#ccfbf1"/>
+  <text x="130" y="210" text-anchor="middle" fill="#0f766e" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="14" font-weight="700">马兴桦</text>
+  <rect x="205" y="188" width="120" height="32" rx="16" fill="#ccfbf1"/>
+  <text x="265" y="210" text-anchor="middle" fill="#0f766e" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="14" font-weight="700">张子煜</text>
+  <rect x="340" y="188" width="100" height="32" rx="16" fill="#ccfbf1"/>
+  <text x="390" y="210" text-anchor="middle" fill="#0f766e" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="14" font-weight="700">江泽</text>
+  <rect x="455" y="188" width="120" height="32" rx="16" fill="#ccfbf1"/>
+  <text x="515" y="210" text-anchor="middle" fill="#0f766e" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="14" font-weight="700">赵泽阳</text>
+  <text x="780" y="210" text-anchor="end" fill="#99f6e4" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="13">4 人小组</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="40" y="260" width="820" height="560" rx="22" fill="#ffffff"/>
+  </g>
+  <rect x="40" y="260" width="10" height="560" rx="5" fill="#10b981"/>
+  <circle cx="90" cy="305" r="18" fill="#d1fae5"/>
+  <path d="M82 305 L88 311 L100 297" fill="none" stroke="#059669" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="120" y="313" fill="#065f46" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="24" font-weight="700">昨天 · 已完成</text>
+  <text x="780" y="313" text-anchor="end" fill="#10b981" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="14" font-weight="600">7 / 7 Done</text>
+  <text x="120" y="340" fill="#94a3b8" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="13">2026.07.19 · 马兴桦 / 张子煜 / 江泽 / 赵泽阳</text>
+
+  <g font-family="Microsoft YaHei, Segoe UI, sans-serif">
+    <rect x="70" y="365" width="760" height="52" rx="12" fill="#f0fdf4"/>
+    <circle cx="105" cy="391" r="14" fill="#10b981"/>
+    <path d="M98 391 L103 396 L114 384" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="135" y="388" fill="#166534" font-size="16" font-weight="600">App 双端角色与首页（居民 / 物业 / 网格）</text>
+    <text x="135" y="408" fill="#86efac" font-size="12">权限隔离 · Tab 与工作台</text>
+
+    <rect x="70" y="430" width="760" height="52" rx="12" fill="#f0fdf4"/>
+    <circle cx="105" cy="456" r="14" fill="#10b981"/>
+    <path d="M98 456 L103 461 L114 449" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="135" y="453" fill="#166534" font-size="16" font-weight="600">报修页预览修复（比例 + 本地即时可见）</text>
+    <text x="135" y="473" fill="#86efac" font-size="12">静态资源白名单 · aspectFit</text>
+
+    <rect x="70" y="495" width="760" height="52" rx="12" fill="#f0fdf4"/>
+    <circle cx="105" cy="521" r="14" fill="#10b981"/>
+    <path d="M98 521 L103 526 L114 514" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="135" y="518" fill="#166534" font-size="16" font-weight="600">管理后台报事报修对接真实接口</text>
+    <text x="135" y="538" fill="#86efac" font-size="12">物业登录 · GET /repair/orders · 接单完工</text>
+
+    <rect x="70" y="560" width="760" height="52" rx="12" fill="#f0fdf4"/>
+    <circle cx="105" cy="586" r="14" fill="#10b981"/>
+    <path d="M98 586 L103 591 L114 579" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="135" y="583" fill="#166534" font-size="16" font-weight="600">物业工作端 · 账号管理（增删启停）</text>
+    <text x="135" y="603" fill="#86efac" font-size="12">创建物业管理员 / 网格员 · 重置密码</text>
+
+    <rect x="70" y="625" width="760" height="52" rx="12" fill="#f0fdf4"/>
+    <circle cx="105" cy="651" r="14" fill="#10b981"/>
+    <path d="M98 651 L103 656 L114 644" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="135" y="648" fill="#166534" font-size="16" font-weight="600">报修工单指派工作人员</text>
+    <text x="135" y="668" fill="#86efac" font-size="12">PUT /repair/orders/{id}/assign · 站内消息</text>
+
+    <rect x="70" y="690" width="760" height="52" rx="12" fill="#f0fdf4"/>
+    <circle cx="105" cy="716" r="14" fill="#10b981"/>
+    <path d="M98 716 L103 721 L114 709" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="135" y="713" fill="#166534" font-size="16" font-weight="600">App 首页「指派给我」待办提醒</text>
+    <text x="135" y="733" fill="#86efac" font-size="12">数量角标 · 工单列表「指派给我」Tab</text>
+
+    <rect x="70" y="755" width="760" height="42" rx="12" fill="#ecfdf5"/>
+    <circle cx="105" cy="776" r="12" fill="#10b981"/>
+    <path d="M99 776 L103 780 L112 770" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+    <text x="135" y="782" fill="#166534" font-size="15" font-weight="600">真实 Vision 对接预留（qwen3.6-plus / Mock 切换）</text>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="40" y="850" width="820" height="430" rx="22" fill="#ffffff"/>
+  </g>
+  <rect x="40" y="850" width="10" height="430" rx="5" fill="#0f766e"/>
+  <circle cx="90" cy="895" r="18" fill="#ccfbf1" stroke="#0f766e" stroke-width="2.5"/>
+  <circle cx="90" cy="895" r="6" fill="#0f766e"/>
+  <text x="120" y="903" fill="#134e4a" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="24" font-weight="700">今天 · 任务</text>
+  <text x="780" y="903" text-anchor="end" fill="#0f766e" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="14" font-weight="600">2026.07.20</text>
+  <text x="120" y="930" fill="#94a3b8" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="13">负责人：马兴桦 · 张子煜 · 江泽 · 赵泽阳</text>
+
+  <g font-family="Microsoft YaHei, Segoe UI, sans-serif">
+    <rect x="70" y="955" width="760" height="58" rx="12" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+    <circle cx="105" cy="984" r="14" fill="none" stroke="#ea580c" stroke-width="2.5"/>
+    <circle cx="105" cy="984" r="5" fill="#ea580c"/>
+    <text x="135" y="979" fill="#9a3412" font-size="16" font-weight="700">修复管理后台「现场图 / 维修照片」加载失败</text>
+    <text x="135" y="1001" fill="#c2410c" font-size="12">固定上传目录 · 静态读盘 · 已验证 200</text>
+    <rect x="680" y="971" width="120" height="26" rx="8" fill="#ffedd5"/>
+    <text x="740" y="989" text-anchor="middle" fill="#c2410c" font-size="12" font-weight="700">进行中</text>
+
+    <rect x="70" y="1030" width="760" height="58" rx="12" fill="#f0fdfa" stroke="#5eead4" stroke-width="1"/>
+    <circle cx="105" cy="1059" r="14" fill="none" stroke="#0f766e" stroke-width="2.5"/>
+    <text x="135" y="1054" fill="#134e4a" font-size="16" font-weight="700">输出技术架构图 + 业务全景图（答辩/文档用）</text>
+    <text x="135" y="1076" fill="#0f766e" font-size="12">docs/diagrams · SVG 矢量稿已落地</text>
+    <rect x="680" y="1046" width="120" height="26" rx="8" fill="#ccfbf1"/>
+    <text x="740" y="1064" text-anchor="middle" fill="#0f766e" font-size="12" font-weight="700">近完成</text>
+
+    <rect x="70" y="1105" width="760" height="58" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+    <circle cx="105" cy="1134" r="14" fill="none" stroke="#64748b" stroke-width="2.5"/>
+    <text x="135" y="1129" fill="#334155" font-size="16" font-weight="700">端到端回归：App 报修 → 指派 → 首页提醒 → 完工</text>
+    <text x="135" y="1151" fill="#64748b" font-size="12">物业账号 + 网格员账号联调</text>
+    <rect x="680" y="1121" width="120" height="26" rx="8" fill="#e2e8f0"/>
+    <text x="740" y="1139" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">待开始</text>
+
+    <rect x="70" y="1180" width="760" height="58" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+    <circle cx="105" cy="1209" r="14" fill="none" stroke="#64748b" stroke-width="2.5"/>
+    <text x="135" y="1204" fill="#334155" font-size="16" font-weight="700">整理启动说明与演示账号清单（答辩演示）</text>
+    <text x="135" y="1226" fill="#64748b" font-size="12">网关 / 五端服务 / App / 管理后台端口一览</text>
+    <rect x="680" y="1196" width="120" height="26" rx="8" fill="#e2e8f0"/>
+    <text x="740" y="1214" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">待开始</text>
+  </g>
+
+  <text x="450" y="1325" text-anchor="middle" fill="#94a3b8" font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="13">马兴桦 · 张子煜 · 江泽 · 赵泽阳 · 智慧社区项目组</text>
+</svg>

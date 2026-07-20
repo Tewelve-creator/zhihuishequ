@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <title>AI 智慧社区</title>
+    <style>
+      /* 桌面端：375×667 手机竖屏预览框 */
+      @media screen and (min-width: 460px) {
+        html,
+        body {
+          margin: 0;
+          height: 100%;
+          background: #bfe6d8;
+        }
+        #app {
+          width: 375px;
+          height: 667px;
+          margin: 24px auto;
+          overflow: hidden;
+          border-radius: 12px;
+          box-shadow: 0 16px 48px rgba(15, 118, 110, 0.2);
+          background: #f5f7f6;
+          position: relative;
+        }
+      }
+    </style>
+    <!--app-context-->
+  </head>
+  <body>
+    <div id="app"><!--app-html--></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

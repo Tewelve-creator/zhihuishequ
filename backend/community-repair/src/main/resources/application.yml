@@ -1,0 +1,35 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: community-repair
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        fail-fast: false
+        enabled: false
+        register-enabled: false
+
+# 上传目录：可用 FILE_UPLOAD_DIR 覆盖；未设置时用用户目录 ~/.smart-community/uploads
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:}
+
+# Feign → community-ai（本地直连；上 Nacos 后可改用服务名）
+services:
+  ai-url: ${AI_SERVICE_URL:http://127.0.0.1:8084}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+

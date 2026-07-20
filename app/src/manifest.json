@@ -1,0 +1,55 @@
+{
+  "name": "AI智慧社区",
+  "appid": "__UNI__ZHIHUISHEQU",
+  "description": "AI 智慧社区服务助手 App",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "vueVersion": "3",
+  "app-plus": {
+    "usingComponents": true,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    },
+    "modules": {},
+    "distribute": {
+      "android": {
+        "permissions": [
+          "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>"
+        ]
+      },
+      "ios": {},
+      "sdkConfigs": {}
+    }
+  },
+  "h5": {
+    "title": "AI智慧社区",
+    "router": {
+      "mode": "hash"
+    },
+    "devServer": {
+      "port": 5180,
+      "proxy": {
+        "/api": {
+          "target": "http://localhost:8080",
+          "changeOrigin": true,
+          "pathRewrite": {
+            "^/api": ""
+          }
+        }
+      }
+    }
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false
+    },
+    "usingComponents": true
+  }
+}

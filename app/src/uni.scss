@@ -1,0 +1,15 @@
+$brand: #47b686;
+$brand-light: #6bc99e;
+$brand-dark: #3a9a70;
+$brand-soft: #e8f7f0;
+$bg: #f5f7f6;
+$card: #ffffff;
+$text: #1f2a28;
+$text-secondary: #8a9693;
+$danger: #ef4444;
+$warning: #f59e0b;
+$border: #e8eeec;
+$radius: 24rpx;
+
+/* 仅引入主题变量/mixin，勿引入 index.scss（会导致包体膨胀） */
+@import 'uview-plus/theme.scss';

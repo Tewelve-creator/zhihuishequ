@@ -1,0 +1,166 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u-(.*)": "uview-plus/components/u-$1/u-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#e8f7f0",
+        "backgroundColor": "#f5f7f6"
+      }
+    },
+    {
+      "path": "pages/login/register",
+      "style": { "navigationBarTitleText": "注册", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/service/index",
+      "style": { "navigationBarTitleText": "服务管理", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/ai/chat",
+      "style": { "navigationBarTitleText": "智能管家", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#47b686",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#f3f6f5"
+      }
+    },
+    {
+      "path": "pages/repair/list",
+      "style": { "navigationBarTitleText": "报修工单", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/repair/create",
+      "style": { "navigationBarTitleText": "拍照报修", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/repair/detail",
+      "style": { "navigationBarTitleText": "工单详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/notice/list",
+      "style": { "navigationBarTitleText": "社区公告", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/notice/detail",
+      "style": { "navigationBarTitleText": "公告详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/activity/list",
+      "style": { "navigationBarTitleText": "社区活动", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/activity/detail",
+      "style": { "navigationBarTitleText": "活动详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/visitor/list",
+      "style": { "navigationBarTitleText": "访客预约", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/visitor/create",
+      "style": { "navigationBarTitleText": "预约访客", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/payment/index",
+      "style": { "navigationBarTitleText": "物业缴费", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/package/index",
+      "style": { "navigationBarTitleText": "提示", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/workbench",
+      "style": { "navigationBarTitleText": "工作台", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/message/list",
+      "style": { "navigationBarTitleText": "消息通知", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/appeal/index",
+      "style": { "navigationBarTitleText": "邻里倾诉", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/lost/index",
+      "style": { "navigationBarTitleText": "失物招领", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/kb",
+      "style": { "navigationBarTitleText": "AI 知识库", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/patrol",
+      "style": { "navigationBarTitleText": "巡查上报", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/dashboard",
+      "style": { "navigationBarTitleText": "数据大屏", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mine/password",
+      "style": { "navigationBarTitleText": "修改密码", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mine/settings",
+      "style": { "navigationBarTitleText": "系统设置", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "智慧社区",
+    "navigationBarBackgroundColor": "#47b686",
+    "backgroundColor": "#f5f7f6"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#00b36b",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "height": "50px",
+    "fontSize": "10px",
+    "iconWidth": "26px",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "static/tab-xiwang-v4.png",
+        "selectedIconPath": "static/tab-xiwang-v4-active.png"
+      },
+      {
+        "pagePath": "pages/ai/chat",
+        "text": "智能管家",
+        "iconPath": "static/tab-butler-v4.png",
+        "selectedIconPath": "static/tab-butler-v4-active.png"
+      },
+      {
+        "pagePath": "pages/service/index",
+        "text": "服务管理",
+        "iconPath": "static/tab-mall-v4.png",
+        "selectedIconPath": "static/tab-mall-v4-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "static/tab-wode-v4.png",
+        "selectedIconPath": "static/tab-wode-v4-active.png"
+      }
+    ]
+  }
+}

@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1020" viewBox="0 0 1400 1020">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#042f2e"/>
+      <stop offset="50%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0fdfa"/>
+    </linearGradient>
+    <filter id="sh2" x="-6%" y="-6%" width="112%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#022c22" flood-opacity="0.4"/>
+    </filter>
+    <marker id="arr2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L5,3 L0,6 Z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arr3" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L5,3 L0,6 Z" fill="#5eead4"/>
+    </marker>
+  </defs>
+
+  <rect width="1400" height="1020" fill="url(#bg2)"/>
+  <circle cx="80" cy="900" r="160" fill="#fbbf24" opacity="0.06"/>
+  <circle cx="1320" cy="80" r="140" fill="#5eead4" opacity="0.08"/>
+
+  <text x="60" y="52" fill="#ecfdf5" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="28" font-weight="700">zg>: SaaS sğ · ¡hoş</text>
+  <text x="60" y="82" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">Business Landscape · ÒrO · >:Ğ%í¯ · Wq¨ı›</text>
+  <rect x="60" y="94" width="160" height="4" rx="2" fill="#fbbf24"/>
+
+  <!-- Roles row -->
+  <text x="60" y="140" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">ÒrB Roles</text>
+
+  <g filter="url(#sh2)">
+    <rect x="60" y="155" width="300" height="100" rx="14" fill="url(#panel)"/>
+    <rect x="60" y="155" width="8" height="100" rx="4" fill="#14b8a6"/>
+    <text x="90" y="190" fill="#0f766e" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">E Resident</text>
+    <text x="90" y="218" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">App ¥î / ¿¢ / ;¨ / AI ¡¶</text>
+    <text x="90" y="238" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">49 · lJ · »Ì>É · 1i</text>
+  </g>
+
+  <g filter="url(#sh2)">
+    <rect x="390" y="155" width="300" height="100" rx="14" fill="url(#panel)"/>
+    <rect x="390" y="155" width="8" height="100" rx="4" fill="#f59e0b"/>
+    <text x="420" y="190" fill="#b45309" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">i¡X</text>
+    <text x="420" y="218" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">Web å\ï + App ¡</text>
+    <text x="420" y="238" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">>åU · &÷¡ · lJÑ</text>
+  </g>
+
+  <g filter="url(#sh2)">
+    <rect x="720" y="155" width="300" height="100" rx="14" fill="url(#panel)"/>
+    <rect x="720" y="155" width="8" height="100" rx="4" fill="#38bdf8"/>
+    <text x="750" y="190" fill="#0369a1" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">Q<X Grid Worker</text>
+    <text x="750" y="218" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">App å\ğ · >…Ğ’</text>
+    <text x="750" y="238" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">¥UŒå · áåO© · ÉB</text>
+  </g>
+
+  <g filter="url(#sh2)">
+    <rect x="1050" y="155" width="290" height="100" rx="14" fill="url(#panel)"/>
+    <rect x="1050" y="155" width="8" height="100" rx="4" fill="#a78bfa"/>
+    <text x="1080" y="190" fill="#6d28d9" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">sğĞ%</text>
+    <text x="1080" y="218" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">Ğ%¡ï · è>:</text>
+    <text x="1080" y="238" fill="#475569" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">ß7 / W / ¢U / ~v1</text>
+  </g>
+
+  <!-- Core business domain -->
+  <text x="60" y="300" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">8Ã¡ß Domains</text>
+
+  <g filter="url(#sh2)">
+    <rect x="60" y="315" width="1270" height="280" rx="18" fill="url(#panel)"/>
+  </g>
+
+  <!-- Domain boxes -->
+  <rect x="90" y="345" width="190" height="110" rx="12" fill="#042f2e"/>
+  <text x="185" y="385" text-anchor="middle" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">¥‹¥î</text>
+  <text x="185" y="412" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">Íg · AI Æş</text>
+  <text x="185" y="432" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">> · ¥U · Œå</text>
+
+  <rect x="310" y="345" width="190" height="110" rx="12" fill="#042f2e"/>
+  <text x="405" y="385" text-anchor="middle" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">lJ;¨</text>
+  <text x="405" y="412" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">Ñ / AI X¡8</text>
+  <text x="405" y="432" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">¥ · ~0</text>
+
+  <rect x="530" y="345" width="190" height="110" rx="12" fill="#042f2e"/>
+  <text x="625" y="385" text-anchor="middle" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">¿¢L</text>
+  <text x="625" y="412" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">„¦ · i¡y</text>
+  <text x="625" y="432" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">0¿8Œ</text>
+
+  <rect x="750" y="345" width="190" height="110" rx="12" fill="#042f2e"/>
+  <text x="845" y="385" text-anchor="middle" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">zı¡¶ AI</text>
+  <text x="845" y="412" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">îT · åÆ“</text>
+  <text x="845" y="432" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">Åê · 1i9M</text>
+
+  <rect x="970" y="345" width="190" height="110" rx="12" fill="#042f2e"/>
+  <text x="1065" y="385" text-anchor="middle" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">iÏ%</text>
+  <text x="1065" y="412" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">49&U</text>
+  <text x="1065" y="432" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">pn / üú</text>
+
+  <rect x="1190" y="345" width="110" height="110" rx="12" fill="#134e4a" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1245" y="395" text-anchor="middle" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">&÷</text>
+  <text x="1245" y="420" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">Xå¡</text>
+
+  <!-- Highlight flow: repair -->
+  <text x="90" y="500" fill="#0f766e" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">s.şï:‹¥‹¥îí¯</text>
+
+  <rect x="90" y="520" width="140" height="48" rx="10" fill="#14b8a6"/>
+  <text x="160" y="550" text-anchor="middle" fill="#042f2e" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">` EÍg¥î</text>
+  <line x1="230" y1="544" x2="265" y2="544" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <rect x="270" y="520" width="140" height="48" rx="10" fill="#0d9488"/>
+  <text x="340" y="550" text-anchor="middle" fill="#ecfdf5" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">a AI Æşeh</text>
+  <line x1="410" y1="544" x2="445" y2="544" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <rect x="450" y="520" width="150" height="48" rx="10" fill="#0f766e"/>
+  <text x="525" y="550" text-anchor="middle" fill="#ecfdf5" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">b iï></text>
+  <line x1="600" y1="544" x2="635" y2="544" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <rect x="640" y="520" width="160" height="48" rx="10" fill="#b45309"/>
+  <text x="720" y="550" text-anchor="middle" fill="#fff" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">c Q<X–uĞ’</text>
+  <line x1="800" y1="544" x2="835" y2="544" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <rect x="840" y="520" width="140" height="48" rx="10" fill="#0369a1"/>
+  <text x="910" y="550" text-anchor="middle" fill="#fff" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">d ¥U</text>
+  <line x1="980" y1="544" x2="1015" y2="544" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <rect x="1020" y="520" width="140" height="48" rx="10" fill="#042f2e" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1090" y="550" text-anchor="middle" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700">e Œåí¯</text>
+
+  <text x="1180" y="548" fill="#64748b" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="11">sys_message å</text>
+
+  <!-- SaaS layer -->
+  <text x="60" y="640" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">SaaS FB · Wq¨ı› ></text>
+
+  <g filter="url(#sh2)">
+    <rect x="60" y="655" width="1270" height="200" rx="18" fill="url(#panel)"/>
+  </g>
+
+  <rect x="95" y="685" width="200" height="140" rx="14" fill="#0f172a"/>
+  <text x="195" y="720" text-anchor="middle" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" font-weight="700">Free / Basic</text>
+  <text x="195" y="750" text-anchor="middle" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">basic_repair</text>
+  <text x="195" y="772" text-anchor="middle" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">basic_notice</text>
+  <text x="195" y="800" text-anchor="middle" fill="#64748b" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="11">0M§İ•ı›</text>
+
+  <rect x="325" y="685" width="200" height="140" rx="14" fill="#0f172a"/>
+  <text x="425" y="720" text-anchor="middle" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" font-weight="700">Pro</text>
+  <text x="425" y="750" text-anchor="middle" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">+ ai_chat</text>
+  <text x="425" y="772" text-anchor="middle" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">+ ai_image_repair</text>
+  <text x="425" y="800" text-anchor="middle" fill="#64748b" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="11">zıı›ã</text>
+
+  <rect x="555" y="685" width="200" height="140" rx="14" fill="#0f172a"/>
+  <text x="655" y="720" text-anchor="middle" fill="#2dd4bf" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" font-weight="700">Flagship</text>
+  <text x="655" y="750" text-anchor="middle" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">+ dashboard / export</text>
+  <text x="655" y="772" text-anchor="middle" fill="#94a3b8" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">+ emotion / lost_match</text>
+  <text x="655" y="800" text-anchor="middle" fill="#64748b" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="11">hÏzg>:ı›</text>
+
+  <rect x="785" y="685" width="510" height="140" rx="14" fill="#042f2e" stroke="#14b8a6" stroke-width="1.5"/>
+  <text x="1040" y="725" text-anchor="middle" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">Fí¯</text>
+  <text x="1040" y="755" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">sğ 7 ’ ÑšW ’ ŸıÑ ’ ÜU/QstC</text>
+  <text x="1040" y="780" text-anchor="middle" fill="#99f6e4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">¢-í9order	’ 0kÏ ’ active / degraded / frozen</text>
+  <text x="1040" y="805" text-anchor="middle" fill="#fbbf24" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">ß7”»tenant_id L§ · Token   · bè>:</text>
+
+  <!-- Bottom value -->
+  <text x="60" y="900" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">÷<; </text>
+  <rect x="60" y="915" width="400" height="55" rx="12" fill="#042f2e"/>
+  <text x="260" y="948" text-anchor="middle" fill="#ecfdf5" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">ùE .¥‹ · AI ¡¶ · Là</text>
+  <rect x="490" y="915" width="400" height="55" rx="12" fill="#042f2e"/>
+  <text x="690" y="948" text-anchor="middle" fill="#ecfdf5" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">ùiåU> · Xå&÷ · …æ¾</text>
+  <rect x="920" y="915" width="410" height="55" rx="12" fill="#042f2e"/>
+  <text x="1125" y="948" text-anchor="middle" fill="#ecfdf5" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14">ùsğW¡9 · >:6 · ïĞ%</text>
+
+  <text x="60" y="1005" fill="#5eead4" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12" opacity="0.8">zg>: · Business Landscape v1.0 · Role × Domain × SaaS Capability</text>
+</svg>

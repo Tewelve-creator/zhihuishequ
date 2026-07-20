@@ -1,0 +1,26 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: community-saas
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        fail-fast: false
+        enabled: false
+        register-enabled: false
+
+services:
+  ai-url: ${AI_SERVICE_URL:http://127.0.0.1:8084}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+

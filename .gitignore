@@ -1,0 +1,47 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Java
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.log
+
+# Node / Uniapp / Vue（其他人目录）
+**/node_modules/
+**/dist/
+**/unpackage/
+**/.hbuilderx/
+**/.env.local
+**/.env.*.local
+
+# 上传文件与构建产物
+**/uploads/
+**/.smart-community/
+
+# PPT/本地生成缓存（大图可选忽略；文档目录保留）
+docs/diagrams/*.png
+!docs/diagrams/.gitkeep
+
+
+# 本地敏感配置
+**/.env
+**/application-local.yml
+**/nacos-data/
+**/logs/
+
+# 系统
+*.tmp
+*.bak
+**/__pycache__/
+*.pyc
+app/scripts/debug_*.png
+app/scripts/ref_*.png
+

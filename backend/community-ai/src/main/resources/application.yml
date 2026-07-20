@@ -1,0 +1,51 @@
+﻿server:
+  port: 8084
+
+spring:
+  application:
+    name: community-ai
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:0}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        fail-fast: false
+        enabled: ${NACOS_ENABLED:false}
+        register-enabled: ${NACOS_ENABLED:false}
+    sentinel:
+      eager: true
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:}
+        port: 8719
+
+# AI：默认 Mock；切 http 并配置 AI_API_KEY 即走真实第三方（密钥勿写入仓库）
+ai:
+  provider: ${AI_PROVIDER:mock}
+  api-url: ${AI_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:qwen3.6-plus}
+  http-timeout-ms: ${AI_HTTP_TIMEOUT_MS:30000}
+  # 识图时从网关拉取本地 /file/static 转 base64（云端访问不到本机）
+  internal-file-base: ${AI_INTERNAL_FILE_BASE:http://127.0.0.1:8080}
+  daily-quota: ${AI_DAILY_QUOTA:200}
+  sentinel:
+    qps: ${AI_SENTINEL_QPS:20}
+  schedule:
+    cron: "0 * * * * ?"
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.community.ai: INFO

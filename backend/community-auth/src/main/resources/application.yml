@@ -1,0 +1,58 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: community-auth
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:0}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        fail-fast: false
+        enabled: ${NACOS_ENABLED:false}
+        register-enabled: ${NACOS_ENABLED:false}
+
+# Sa-Token（与网关共用 Redis，实现多端会话）
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 604800
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  is-read-header: true
+  is-read-cookie: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 短信 / 到期降级与续费提醒（每天 01:00）
+auth:
+  sms:
+    use-fixed: true
+    fixed-code: "123456"
+    ttl-seconds: 300
+  expire:
+    cron: ${AUTH_EXPIRE_CRON:0 0 1 * * ?}
+    # 超期 N 天后冻结（与 TenantExpireJob 一致）
+    freeze-after-days: 30
+    # 到期前提醒天数
+    remind-days: 30,7,1

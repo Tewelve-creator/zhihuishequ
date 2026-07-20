@@ -1,0 +1,68 @@
+﻿server:
+  port: 8080
+
+spring:
+  application:
+    name: community-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:0}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        fail-fast: false
+        enabled: ${NACOS_ENABLED:false}
+        register-enabled: ${NACOS_ENABLED:false}
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        - id: auth
+          uri: http://${SERVICES_HOST:127.0.0.1}:8081
+          predicates:
+            - Path=/auth/**
+        - id: saas
+          uri: http://${SERVICES_HOST:127.0.0.1}:8082
+          predicates:
+            - Path=/saas/**
+        - id: repair
+          uri: http://${SERVICES_HOST:127.0.0.1}:8083
+          predicates:
+            - Path=/repair/**,/notice/**,/visit/**,/activity/**,/file/**,/appeal/**,/fee/**
+        - id: ai
+          uri: http://${SERVICES_HOST:127.0.0.1}:8084
+          predicates:
+            - Path=/ai/**
+        - id: order
+          uri: http://${SERVICES_HOST:127.0.0.1}:8085
+          predicates:
+            - Path=/order/**
+        - id: stats
+          uri: http://${SERVICES_HOST:127.0.0.1}:8086
+          predicates:
+            - Path=/stats/**
+
+# 与 community-auth 共用 Redis，校验同一套 Sa-Token
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 604800
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-read-header: true
+  is-read-cookie: false
+
+# 套餐拦截：默认关闭（先做业务功能）；收费阶段改为 enabled=true
+gateway:
+  package:
+    enabled: ${GATEWAY_PACKAGE_ENABLED:false}
+    extra-rules: ${GATEWAY_PACKAGE_EXTRA_RULES:}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
