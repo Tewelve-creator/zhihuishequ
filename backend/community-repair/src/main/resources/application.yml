@@ -4,32 +4,67 @@ server:
 spring:
   application:
     name: community-repair
+  config:
+    import: optional:classpath:application-local.yml
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 12MB
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    # 远程开发机：82.156.66.83（可用环境变量覆盖）
+    url: jdbc:mysql://${MYSQL_HOST:82.156.66.83}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root}
+    password: ${MYSQL_PASSWORD:zxc123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:82.156.66.83}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        server-addr: ${NACOS_ADDR:82.156.66.83:8848}
         fail-fast: false
         enabled: false
         register-enabled: false
 
-# 上传目录：可用 FILE_UPLOAD_DIR 覆盖；未设置时用用户目录 ~/.smart-community/uploads
+# 访客通行：业主只转发链接；二维码由 H5 实时校验后签发短时载荷
+visit:
+  pass-page-base: ${VISIT_PASS_PAGE_BASE:http://localhost:5180/#/pages/visitor/pass?token=}
+  # 短时二维码刷新周期（秒），防止截图长期有效
+  qr-refresh-seconds: ${VISIT_QR_REFRESH_SECONDS:60}
+  # 预留：打开凭证是否校验访客手机号（默认关闭）
+  phone-verify-enabled: ${VISIT_PHONE_VERIFY_ENABLED:false}
+  qr-sign-secret: ${VISIT_QR_SIGN_SECRET:visit-pass-demo-secret}
+
+# 文件存储：type=minio（推荐）| local
+# 对外 URL 仍为 /file/static/{tenantId}/{filename}，由本服务从 MinIO/本地读回
 file:
-  upload-dir: ${FILE_UPLOAD_DIR:}
+  type: ${FILE_STORAGE_TYPE:minio}
+  # local 模式或 MinIO 读不到时的历史图片回退目录
+  upload-dir: ${FILE_UPLOAD_DIR:D:/java文件夹/zhineng/uploads}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://82.156.66.83:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:smart-community}
 
 # Feign → community-ai（本地直连；上 Nacos 后可改用服务名）
 services:
   ai-url: ${AI_SERVICE_URL:http://127.0.0.1:8084}
 
+# 支付宝沙盒默认关闭；密钥写在 application-local.yml（已 gitignore）
+alipay:
+  enabled: false
+  sandbox: true
+  gateway: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  return-url: http://127.0.0.1:8080/fee/alipay/return
+  frontend-result-url: http://127.0.0.1:5180/#/pages/payment/result
+  frontend-store-result-url: http://127.0.0.1:5180/#/pages/mall/pay-result
+  notify-url: ""
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-

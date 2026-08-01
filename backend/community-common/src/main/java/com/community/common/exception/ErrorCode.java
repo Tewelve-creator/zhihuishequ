@@ -22,7 +22,9 @@ public enum ErrorCode {
     TENANT_NOT_FOUND(40201, "租户不存在"),
     PACKAGE_NOT_FOUND(40301, "套餐不存在"),
     ORDER_NOT_FOUND(40302, "订单不存在"),
-    FEATURE_DENIED(40303, "当前套餐未开放该功能");
+    FEATURE_DENIED(40303, "当前套餐未开放该功能"),
+    /** 与 FEATURE_DENIED 同码，供前后端统一识别 */
+    FEATURE_NOT_AVAILABLE(40303, "当前套餐未包含此功能");
 
     private final int code;
     private final String msg;

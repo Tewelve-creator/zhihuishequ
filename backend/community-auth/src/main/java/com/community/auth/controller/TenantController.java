@@ -3,6 +3,8 @@ package com.community.auth.controller;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaCheckRole;
+import com.community.auth.dto.AiQuotaUpdateRequest;
+import com.community.auth.dto.TenantAdminAccountRequest;
 import com.community.auth.dto.TenantCreateRequest;
 import com.community.auth.entity.SysTenant;
 import com.community.auth.job.TenantExpireJob;
@@ -16,6 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +33,22 @@ public class TenantController {
     @GetMapping("/public")
     public R<List<SysTenant>> listPublic() {
         return R.ok(tenantService.listPublic());
+    }
+
+    /** 登录页按账号自动识别所属社区（免登录） */
+    @GetMapping("/resolve-by-phone")
+    public R<List<Map<String, Object>>> resolveByPhone(
+            @RequestParam String phone,
+            @RequestParam(defaultValue = "property") String portal) {
+        return R.ok(tenantService.resolveCommunitiesByPhone(phone, portal));
+    }
+
+    /** 当前登录账号可切换的社区列表（含 packageCode） */
+    @GetMapping("/mine/communities")
+    @SaCheckLogin
+    public R<List<Map<String, Object>>> myCommunities(
+            @RequestParam(defaultValue = "property") String portal) {
+        return R.ok(tenantService.listMyCommunities(portal));
     }
 
     @GetMapping
@@ -93,6 +112,49 @@ public class TenantController {
     public R<Void> setStatus(@PathVariable Long id, @RequestParam String status) {
         tenantService.setStatus(id, status);
         return R.ok();
+    }
+
+    /** 调整租户 AI 调用额度 */
+    @PutMapping("/{id}/ai-quota")
+    @SaCheckRole(RoleConstants.PLATFORM_ADMIN)
+    @SaCheckPermission("auth:tenant:edit")
+    public R<SysTenant> updateAiQuota(@PathVariable Long id, @Valid @RequestBody AiQuotaUpdateRequest req) {
+        return R.ok(tenantService.updateAiQuota(id, req.getAiQuota()));
+    }
+
+    /** 平台：租户功能授权（开放/关闭 AI 报修、AI 管家等） */
+    @PutMapping("/{id}/features")
+    @SaCheckRole(RoleConstants.PLATFORM_ADMIN)
+    @SaCheckPermission("auth:tenant:edit")
+    public R<SysTenant> updateFeatures(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Object raw = body == null ? null : body.get("featureCodes");
+        List<String> codes = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object o : list) {
+                if (o != null) codes.add(String.valueOf(o));
+            }
+        } else if (raw instanceof String s) {
+            for (String p : s.split(",")) {
+                if (!p.isBlank()) codes.add(p.trim());
+            }
+        }
+        return R.ok(tenantService.updateFeatures(id, codes));
+    }
+
+    @GetMapping("/{id}/admin-account")
+    @SaCheckRole(RoleConstants.PLATFORM_ADMIN)
+    @SaCheckPermission("auth:tenant:edit")
+    public R<Map<String, Object>> getAdminAccount(@PathVariable Long id) {
+        return R.ok(tenantService.getAdminAccount(id));
+    }
+
+    @PutMapping("/{id}/admin-account")
+    @SaCheckRole(RoleConstants.PLATFORM_ADMIN)
+    @SaCheckPermission("auth:tenant:edit")
+    public R<Map<String, Object>> upsertAdminAccount(
+            @PathVariable Long id,
+            @Valid @RequestBody TenantAdminAccountRequest body) {
+        return R.ok(tenantService.upsertAdminAccount(id, body));
     }
 
     @DeleteMapping("/{id}")

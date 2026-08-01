@@ -34,21 +34,45 @@ export const updateNotice = (id, data) =>
 export const deleteNotice = (id) =>
   request({ url: `/notice/${id}`, method: 'DELETE' })
 
-export const listVisit = () => request({ url: '/visit' })
+export const listVisit = (status) =>
+  request({ url: '/visit', data: status ? { status } : undefined })
 export const createVisit = (data) => request({ url: '/visit', method: 'POST', data })
-export const auditVisit = (id, data) =>
-  request({ url: `/visit/${id}/audit`, method: 'PUT', data })
 export const checkinVisit = (id) => request({ url: `/visit/${id}/checkin`, method: 'PUT' })
+export const cancelVisit = (id) => request({ url: `/visit/${id}/cancel`, method: 'PUT' })
+export const getVisitTodoSummary = () => request({ url: '/visit/todo-summary' })
+/** 通行页（匿名）：打开记日志；仅校验通过才返回短时 qrPayload */
+export const getVisitPassInfo = (token, phone) =>
+  request({
+    url: '/visit/pass/info',
+    data: phone ? { token, phone } : { token },
+    auth: false
+  })
+/** 短时二维码刷新 */
+export const refreshVisitPassQr = (token, phone) =>
+  request({
+    url: '/visit/pass/qr',
+    data: phone ? { token, phone } : { token },
+    auth: false
+  })
+/** 扫码核验：优先 qrPayload */
+export const verifyVisitPass = (data) =>
+  request({
+    url: '/visit/pass/verify',
+    method: 'POST',
+    data: typeof data === 'string' ? { token: data } : data || {},
+    auth: false
+  })
 
 export const listActivity = () => request({ url: '/activity' })
 export const createActivity = (data) => request({ url: '/activity', method: 'POST', data })
-export const signupActivity = (id) =>
-  request({ url: `/activity/${id}/signup`, method: 'POST' })
+export const signupActivity = (id, data) =>
+  request({ url: `/activity/${id}/signup`, method: 'POST', data: data || {} })
 export const listSignups = (id) => request({ url: `/activity/${id}/signups` })
 export const checkSignup = (signupId) =>
   request({ url: `/activity/signup/${signupId}/check`, method: 'PUT' })
 
-export const listAppeal = () => request({ url: '/appeal' })
+export const listAppeal = (status) =>
+  request({ url: '/appeal/tickets', data: status ? { status } : undefined })
 export const createAppeal = (data) => request({ url: '/appeal', method: 'POST', data })
 export const handleAppeal = (id, data) =>
   request({ url: `/appeal/${id}/handle`, method: 'PUT', data })

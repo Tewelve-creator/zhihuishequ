@@ -16,7 +16,10 @@ public class AiKnowledge {
     private String category;
     private String question;
     private String answer;
+    /** 检索辅助关键词，逗号分隔，可空 */
+    private String keywords;
     private Integer hitCount;
+    /** 1 启用 / 0 停用 */
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

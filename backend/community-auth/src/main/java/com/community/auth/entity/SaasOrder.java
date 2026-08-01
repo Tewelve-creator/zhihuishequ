@@ -22,11 +22,15 @@ public class SaasOrder {
     private BigDecimal amount;
     /** new / renew / upgrade */
     private String orderType;
-    /** pending / paid / cancelled */
+    /** pending / paid / cancelled / refunded */
     private String status;
+    /** wechat / alipay / bank / mock */
+    private String payMethod;
     private LocalDateTime payTime;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
+    private String refundReason;
+    private LocalDateTime refundTime;
     private Long createBy;
     private LocalDateTime createTime;
 }

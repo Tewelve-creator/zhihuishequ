@@ -6,6 +6,8 @@ package com.community.common.tenant;
 public final class TenantContext {
     private static final ThreadLocal<Long> TENANT_ID = new ThreadLocal<>();
     private static final ThreadLocal<Long> USER_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> HOUSE_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> SHOP_ID = new ThreadLocal<>();
     private static final ThreadLocal<String> ROLE = new ThreadLocal<>();
     private static final ThreadLocal<String> CLIENT_TYPE = new ThreadLocal<>();
     private static final ThreadLocal<String> FEATURES = new ThreadLocal<>();
@@ -29,6 +31,22 @@ public final class TenantContext {
 
     public static Long getUserId() {
         return USER_ID.get();
+    }
+
+    public static void setHouseId(Long houseId) {
+        HOUSE_ID.set(houseId);
+    }
+
+    public static Long getHouseId() {
+        return HOUSE_ID.get();
+    }
+
+    public static void setShopId(Long shopId) {
+        SHOP_ID.set(shopId);
+    }
+
+    public static Long getShopId() {
+        return SHOP_ID.get();
     }
 
     public static void setRole(String role) {
@@ -74,6 +92,8 @@ public final class TenantContext {
     public static void clear() {
         TENANT_ID.remove();
         USER_ID.remove();
+        HOUSE_ID.remove();
+        SHOP_ID.remove();
         ROLE.remove();
         CLIENT_TYPE.remove();
         FEATURES.remove();

@@ -18,6 +18,10 @@ public class NoticeInfo {
     private String content;
     private String summary;
     private String targetTag;
+    /** JSON：ageBand/interest/building/hasChild 定向规则 */
+    private String targetRule;
+    private Integer aiAuditPass;
+    private Integer pushCount;
     private Long publisherId;
     /** 1=启用 0=下架 */
     private Integer status;

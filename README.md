@@ -32,10 +32,11 @@ docker compose up -d
 |------|------|------|
 | MySQL | 3306 | root / root，库名 `smart_community` |
 | Redis | 6379 | 无密码 |
+| MinIO | 9000（API）/ 9001（控制台） | minioadmin / minioadmin |
 
 首次启动会自动执行 `sql/schema.sql` + `sql/patch_staff_mobile.sql`。
 
-若不用 Docker，请手动：
+若不用 Docker，请手动准备 MySQL / Redis，并单独启动 MinIO：
 
 ```bash
 mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS smart_community DEFAULT CHARSET utf8mb4;"
@@ -43,15 +44,29 @@ mysql -uroot -proot smart_community < sql/schema.sql
 mysql -uroot -proot smart_community < sql/patch_staff_mobile.sql
 ```
 
+**MinIO（图片存储，报修服务默认 `file.type=minio`）**
+
+1. 下载 [minio.exe](https://dl.min.io/server/minio/release/windows-amd64/minio.exe) 放到 `tools/minio.exe`
+2. 运行 `scripts\start-minio.bat`（API `http://127.0.0.1:9000`，控制台 `http://127.0.0.1:9001`）
+3. 报修服务启动时会自动创建桶 `smart-community`
+4. 可选：把历史本地图片迁到 MinIO（需已登录 token，或直连 8083）：
+   `POST http://127.0.0.1:8083/file/migrate-local-to-minio`
+
+切回本地盘：`$env:FILE_STORAGE_TYPE='local'`
+
 （已有旧库可再执行 `sql/patch_*.sql` 增量补丁。）
 
 ### 3. 启动后端（端口）
 
-在仓库根目录设置环境变量后，按模块启动（IDEA 或 jar 均可）：
+各服务 `application.yml` 默认已指向远程开发机 `82.156.66.83`（MySQL / Redis / Nacos / MinIO）。本地覆盖示例：
 
 ```bash
-# Windows PowerShell
+# Windows PowerShell（改回本机中间件时）
+$env:MYSQL_HOST='127.0.0.1'
 $env:MYSQL_PASSWORD='root'
+$env:REDIS_HOST='127.0.0.1'
+$env:NACOS_ADDR='127.0.0.1:8848'
+$env:MINIO_ENDPOINT='http://127.0.0.1:9000'
 $env:NACOS_ENABLED='false'
 ```
 
@@ -132,18 +147,13 @@ docs/        接口与架构说明
 
 ## 协作说明
 
-| 成员 | 主要目录 |
-|------|----------|
-| 马兴桦 | `backend/`、`sql/` |
-| 张子煜 | `admin-web/` |
-| 赵泽阳 | `app/` |
-| 江泽 | `docs/` |
+五人功能分工（报修 / 缴费 / 商户 / 邻里 / AI）见 [`docs/team-five-modules.md`](docs/team-five-modules.md)。
 
 个人功能分支 → `dev` → `test` → `master`。
 
 ## 常见问题
 
 1. **端口占用**：不要同时用 IDEA 和 `java -jar` 启动同一服务。  
-2. **图片 404**：设置 `FILE_UPLOAD_DIR` 为固定目录，或使用默认 `~/.smart-community/uploads`。  
+2. **图片 404 / MinIO**：确认 MinIO 已启动（9000），`file.type=minio`；历史本地图会自动回退读盘，也可调用 `/file/migrate-local-to-minio` 迁移。  
 3. **公告看不到**：定时公告未到点前，居民端不可见；物业端「公告通知」可管理。  
-4. **MySQL 密码**：默认与 `application.yml` 一致为 `root`；可用环境变量 `MYSQL_PASSWORD` 覆盖。
+4. **MySQL**：默认连接 `82.156.66.83`，账号 `root` / 密码 `zxc123456`；可用 `MYSQL_HOST`、`MYSQL_PASSWORD` 覆盖。

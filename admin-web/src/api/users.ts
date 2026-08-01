@@ -52,3 +52,7 @@ export function updateUserStatus(id: number, status: number) {
 export function resetStaffPassword(id: number) {
   return request.put(`/auth/users/${id}/password/reset`) as Promise<void>
 }
+
+export function deleteStaffUser(id: number) {
+  return request.delete(`/auth/users/${id}`) as Promise<void>
+}

@@ -3,6 +3,8 @@ package com.community.ai.service;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.community.ai.biz.AiBizButlerService;
+import com.community.ai.config.AiProviderGateway;
 import com.community.ai.entity.AiChatLog;
 import com.community.ai.entity.AiKnowledge;
 import com.community.ai.entity.AiScheduleRemind;
@@ -11,6 +13,8 @@ import com.community.ai.mapper.AiKnowledgeMapper;
 import com.community.ai.mapper.AiScheduleRemindMapper;
 import com.community.ai.mock.MockAiClient;
 import com.community.ai.mock.ThirdPartyAiClient;
+import com.community.ai.rag.RagHit;
+import com.community.ai.rag.RagKnowledgeService;
 import com.community.common.constant.RoleConstants;
 import com.community.common.exception.BizException;
 import com.community.common.feign.dto.*;
@@ -29,7 +33,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 第三阶段 AI 能力：Mock 优先，预留 http 真模型；租户知识库隔离 + Redis/Sentinel 限流
+ * 智能管家：业务指令 + RAG 制度问答 + 闲聊；按环境自动 Mock/真实 LLM
  */
 @Slf4j
 @Service
@@ -43,23 +47,22 @@ public class AiService {
     private final JdbcTemplate jdbcTemplate;
     private final MockAiClient mockAiClient;
     private final ThirdPartyAiClient thirdPartyAiClient;
-
-    @Value("${ai.provider:mock}")
-    private String provider;
+    private final AiBizButlerService aiBizButlerService;
+    private final AiProviderGateway providerGateway;
+    private final RagKnowledgeService ragKnowledgeService;
+    private final FriendlyChatHelper friendlyChatHelper;
+    private final KbSettingsService kbSettingsService;
+    private final AiFeatureService aiFeatureService;
 
     @Value("${ai.daily-quota:200}")
     private int dailyQuota;
 
-    /* ===================== 1. 知识库 + 问答 ===================== */
+    /* ===================== 1. 智能管家对话（业务指令 / RAG / 闲聊） ===================== */
 
     @SentinelResource(value = "ai_chat", blockHandler = "chatBlock")
     public AiChatResponse chat(AiChatRequest req) {
         fillContext(req.getTenantId(), req.getUserId());
         requireTenant();
-        // 物业端不做业主咨询对话，仅居民可调用
-        if (RoleConstants.isTenantStaff(TenantContext.getRole())) {
-            throw new BizException(403, "物业端请使用知识库/审核工具，勿使用业主问答");
-        }
         long start = System.currentTimeMillis();
         checkQuota("chat");
         String question = req.getQuestion() == null ? "" : req.getQuestion().trim();
@@ -67,34 +70,170 @@ public class AiService {
             throw new BizException(400, "问题不能为空");
         }
 
-        Optional<String> kb = findKbAnswer(question);
-        Map<String, Object> raw;
-        if (kb.isPresent()) {
-            raw = mockAiClient.chat(question, kb);
-        } else if (useHttp()) {
-            try {
-                String answer = thirdPartyAiClient.chatCompletion(
-                        "你是智慧社区助手，请简洁回答本社区居民问题。", question);
-                raw = new LinkedHashMap<>();
-                raw.put("answer", answer);
-                raw.put("source", "llm_http");
-                raw.put("provider", "http");
-                raw.put("transferHuman", question.contains("人工") || question.contains("投诉"));
-            } catch (Exception e) {
-                log.warn("http llm fallback mock: {}", e.getMessage());
-                raw = mockAiClient.chat(question, Optional.empty());
-            }
-        } else {
-            raw = mockAiClient.chat(question, Optional.empty());
+        // 1) 业务办理（含会话追问/确认）——禁止未确认写库
+        Optional<AiChatResponse> biz = aiBizButlerService.tryHandle(question);
+        if (biz.isPresent()) {
+            AiChatResponse resp = biz.get();
+            saveChatLog(question, resp);
+            logCall("chat_biz", true, start, resp.getIntent());
+            return resp;
         }
 
-        AiChatResponse resp = new AiChatResponse();
-        resp.setAnswer(String.valueOf(raw.get("answer")));
-        resp.setSource(String.valueOf(raw.get("source")));
-        resp.setProvider(String.valueOf(raw.getOrDefault("provider", provider)));
-        resp.setTransferHuman(Boolean.TRUE.equals(raw.get("transferHuman")));
+        // 2) 闲聊打招呼 —— 友好回复，不提示找不到资料
+        if (friendlyChatHelper.isChitchat(question)) {
+            AiChatResponse resp = friendlyChatHelper.reply(question);
+            saveChatLog(question, resp);
+            logCall("chat_chitchat", true, start, null);
+            return resp;
+        }
+
+        // 3) 按策略检索知识库或走大模型
+        String strategy = "rag_first";
+        try {
+            strategy = kbSettingsService.replyStrategy(TenantContext.getTenantId());
+        } catch (Exception ignored) {
+        }
+
+        if (!"llm_first".equals(strategy)) {
+            Optional<RagHit> ragOpt = ragKnowledgeService.retrieve(question);
+            if (ragOpt.isPresent() && ragOpt.get().isAccepted()) {
+                AiChatResponse resp = answerWithRag(question, ragOpt.get());
+                saveChatLog(question, resp);
+                logCall("chat_rag", true, start, String.format(Locale.ROOT, "score=%.2f", ragOpt.get().getScore()));
+                return resp;
+            }
+            if ("kb_only".equals(strategy)) {
+                AiChatResponse resp = AiChatResponse.ofRag(
+                        "抱歉，知识库中暂未找到相关内容。建议您联系物业客服核实，或换个问法再试。",
+                        "kb_miss", providerGateway.activeMode(), false);
+                resp.setMode("KB_ONLY");
+                saveChatLog(question, resp);
+                logCall("chat_kb_miss", true, start, null);
+                return resp;
+            }
+        }
+
+        // 4) 知识库未命中（或 llm_first）：大模型作答
+        AiChatResponse resp = answerWithoutKb(question);
         saveChatLog(question, resp);
-        logCall("chat", true, start, null);
+        logCall("chat", true, start, resp.getSource());
+        return resp;
+    }
+
+    private String butlerSystem() {
+        try {
+            return kbSettingsService.systemPrompt(TenantContext.getTenantId());
+        } catch (Exception e) {
+            return KbSettingsService.DEFAULT_SYSTEM_PROMPT;
+        }
+    }
+
+    private static final String UNOFFICIAL_TIP =
+            "⚠温馨提示：该内容不属于本小区官方规定，仅供参考，小区相关事务建议联系物业核实。";
+
+    /** 知识库未命中：DeepSeek/LLM 自由作答；Mock 模式本地兜底。均追加温馨提示。 */
+    private AiChatResponse answerWithoutKb(String question) {
+        String answer;
+        String source;
+        if (providerGateway.useLlm()) {
+            try {
+                answer = thirdPartyAiClient.chatCompletion(butlerSystem(), question);
+                source = "llm_general";
+            } catch (Exception e) {
+                log.warn("llm general fallback: {}", e.getMessage());
+                answer = "这个问题我可以结合常识帮您说明一下，具体以本小区物业规定为准。";
+                source = "llm_general_fallback";
+            }
+        } else {
+            answer = friendlyChatHelper.generalAnswer(question);
+            source = "mock_general";
+        }
+        answer = ensureUnofficialTip(answer);
+        AiChatResponse resp = AiChatResponse.ofRag(answer, source, providerGateway.activeMode(),
+                question.contains("人工") || question.contains("投诉"));
+        resp.setMode("LLM");
+        return resp;
+    }
+
+    private String ensureUnofficialTip(String answer) {
+        boolean enable = true;
+        try {
+            enable = kbSettingsService.enableUnofficialTip(TenantContext.getTenantId());
+        } catch (Exception ignored) {
+        }
+        if (!enable) return answer == null ? "" : answer.trim();
+        String a = answer == null ? "" : answer.trim();
+        if (a.contains("不属于本小区官方规定")) {
+            return a;
+        }
+        return a + "\n\n" + UNOFFICIAL_TIP;
+    }
+
+    private AiChatResponse answerWithRag(String question, RagHit hit) {
+        if ("document".equals(hit.getHitType())) {
+            return answerWithDocRag(question, hit);
+        }
+        AiKnowledge kb = hit.getKnowledge();
+        ragKnowledgeService.bumpHit(kb);
+        String answer = kb.getAnswer();
+        String source = "tenant_kb";
+        if (providerGateway.useLlm()) {
+            try {
+                String polished = thirdPartyAiClient.chatCompletion(
+                        butlerSystem() + "\n以下为小区知识库资料（请优先依据作答，无需再加非官方温馨提示）：\n"
+                                + kb.getAnswer(),
+                        question);
+                if (StringUtils.hasText(polished)) {
+                    answer = polished.trim();
+                    source = "tenant_kb_llm";
+                }
+            } catch (Exception e) {
+                log.debug("rag polish skip: {}", e.getMessage());
+            }
+        }
+        AiChatResponse resp = AiChatResponse.ofRag(answer, source, providerGateway.activeMode(), false);
+        resp.setMode("RAG");
+        // 供问答日志详情排查：落库召回片段与得分
+        resp.setRagScore(hit.getScore());
+        resp.setRagHitType("qa");
+        resp.setRagDocTitle(kb.getQuestion());
+        resp.setRagChunk(StringUtils.hasText(kb.getAnswer()) ? kb.getAnswer() : kb.getQuestion());
+        return resp;
+    }
+
+    private AiChatResponse answerWithDocRag(String question, RagHit hit) {
+        String excerpt = hit.getChunkContent() == null ? "" : hit.getChunkContent().trim();
+        String answer = excerpt;
+        String source = "tenant_doc";
+        if (providerGateway.useLlm()) {
+            try {
+                String polished = thirdPartyAiClient.chatCompletion(
+                        butlerSystem() + "\n以下为小区知识库文档摘录（请优先依据作答，无需再加非官方温馨提示）：\n"
+                                + excerpt,
+                        question);
+                if (StringUtils.hasText(polished)) {
+                    answer = polished.trim();
+                    source = "tenant_doc_llm";
+                }
+            } catch (Exception e) {
+                log.debug("doc rag polish skip: {}", e.getMessage());
+            }
+        }
+        String fileName = StringUtils.hasText(hit.getDocFileName()) ? hit.getDocFileName() : hit.getDocTitle();
+        if ("community".equalsIgnoreCase(hit.getDocCategory()) && StringUtils.hasText(fileName)) {
+            if (!answer.contains("来源：") && !answer.contains("来源:")) {
+                answer = answer + "\n\n—— 来源：" + fileName;
+            }
+        }
+        AiChatResponse resp = AiChatResponse.ofRag(answer, source, providerGateway.activeMode(), false);
+        resp.setMode("RAG");
+        if (StringUtils.hasText(fileName)) {
+            resp.setSourceDocs(List.of(fileName));
+        }
+        resp.setRagScore(hit.getScore());
+        resp.setRagHitType("document");
+        resp.setRagDocTitle(StringUtils.hasText(hit.getDocTitle()) ? hit.getDocTitle() : fileName);
+        resp.setRagChunk(excerpt);
         return resp;
     }
 
@@ -109,11 +248,331 @@ public class AiService {
         if (uid == null) {
             return List.of();
         }
+        ensureChatLogExt();
         return chatLogMapper.selectList(new LambdaQueryWrapper<AiChatLog>()
                 .eq(AiChatLog::getTenantId, TenantContext.getTenantId())
                 .eq(AiChatLog::getUserId, uid)
                 .orderByDesc(AiChatLog::getId)
                 .last("limit 50"));
+    }
+
+    /**
+     * 物业：问答日志（提问/回答/评价）
+     * @param sourceGroup 来源分组：kb|llm|biz|chitchat
+     */
+    public List<Map<String, Object>> listAdminChatLogs(String keyword, Integer rating, String sourceGroup, int limit) {
+        requireTenant();
+        assertStaffForKb();
+        ensureChatLogExt();
+        int lim = Math.min(Math.max(limit, 1), 300);
+        Long tid = TenantContext.getTenantId();
+        StringBuilder sql = new StringBuilder(
+                "select id, tenant_id as tenantId, user_id as userId, user_nickname as userNickname, "
+                        + "question, answer, source, transfer_human as transferHuman, "
+                        + "rating, rating_remark as ratingRemark, "
+                        + "rag_score as ragScore, rag_chunk as ragChunk, rag_doc_title as ragDocTitle, "
+                        + "create_time as createTime "
+                        + "from ai_chat_log where tenant_id=? ");
+        List<Object> args = new ArrayList<>();
+        args.add(tid);
+        if (rating != null && (rating == 1 || rating == 2)) {
+            sql.append("and rating=? ");
+            args.add(rating);
+        }
+        appendSourceGroupFilter(sql, args, sourceGroup);
+        if (StringUtils.hasText(keyword)) {
+            sql.append("and (question like ? or answer like ? or user_nickname like ?) ");
+            String k = "%" + keyword.trim() + "%";
+            args.add(k);
+            args.add(k);
+            args.add(k);
+        }
+        sql.append("order by id desc limit ").append(lim);
+        List<Map<String, Object>> rows;
+        try {
+            rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
+        } catch (Exception e) {
+            // 兼容尚未加 RAG 列的旧库
+            StringBuilder sql2 = new StringBuilder(
+                    "select id, tenant_id as tenantId, user_id as userId, user_nickname as userNickname, "
+                            + "question, answer, source, transfer_human as transferHuman, "
+                            + "rating, rating_remark as ratingRemark, create_time as createTime "
+                            + "from ai_chat_log where tenant_id=? ");
+            List<Object> args2 = new ArrayList<>();
+            args2.add(tid);
+            if (rating != null && (rating == 1 || rating == 2)) {
+                sql2.append("and rating=? ");
+                args2.add(rating);
+            }
+            appendSourceGroupFilter(sql2, args2, sourceGroup);
+            if (StringUtils.hasText(keyword)) {
+                sql2.append("and (question like ? or answer like ? or user_nickname like ?) ");
+                String k = "%" + keyword.trim() + "%";
+                args2.add(k);
+                args2.add(k);
+                args2.add(k);
+            }
+            sql2.append("order by id desc limit ").append(lim);
+            rows = jdbcTemplate.queryForList(sql2.toString(), args2.toArray());
+        }
+        for (Map<String, Object> r : rows) {
+            Object ct = r.get("createTime");
+            if (ct != null) {
+                r.put("createTime", String.valueOf(ct).replace('T', ' ').substring(0, Math.min(19, String.valueOf(ct).length())));
+            }
+            Integer rt = r.get("rating") == null ? null : ((Number) r.get("rating")).intValue();
+            r.put("ratingLabel", rt == null ? "未评价" : (rt == 1 ? "好评" : "差评"));
+            Object th = r.get("transferHuman");
+            r.put("transferHuman", th != null && ((Number) th).intValue() == 1);
+            String src = r.get("source") == null ? "" : String.valueOf(r.get("source"));
+            String group = sourceGroupOf(src);
+            r.put("sourceGroup", group);
+            r.put("sourceLabel", sourceLabelOf(src));
+            // 是否展示知识库召回区
+            boolean hasRag = r.get("ragChunk") != null && StringUtils.hasText(String.valueOf(r.get("ragChunk")));
+            r.put("hasRagHit", hasRag || "kb".equals(group));
+            if (r.get("ragScore") instanceof Number n) {
+                r.put("ragScoreText", String.format(Locale.ROOT, "%.2f", n.doubleValue()));
+            }
+        }
+        return rows;
+    }
+
+    /**
+     * 问答日志统计：
+     * - 卡片：当日对话总数 / 知识库命中 / 好评 / 差评
+     * - 图表：业主高频咨询 TOP10（按 topRange：today|7d|30d）
+     */
+    public Map<String, Object> chatLogTodayStats(String topRange) {
+        requireTenant();
+        assertStaffForKb();
+        ensureChatLogExt();
+        Long tid = TenantContext.getTenantId();
+        // 按租户当日（数据库本地日期）聚合卡片
+        Integer total = jdbcTemplate.queryForObject(
+                "select count(1) from ai_chat_log where tenant_id=? and date(create_time)=curdate()",
+                Integer.class, tid);
+        Integer kbHit = jdbcTemplate.queryForObject(
+                "select count(1) from ai_chat_log where tenant_id=? and date(create_time)=curdate() "
+                        + "and source in ('tenant_kb','tenant_kb_llm','tenant_doc','tenant_doc_llm')",
+                Integer.class, tid);
+        Integer good = jdbcTemplate.queryForObject(
+                "select count(1) from ai_chat_log where tenant_id=? and date(create_time)=curdate() and rating=1",
+                Integer.class, tid);
+        Integer bad = jdbcTemplate.queryForObject(
+                "select count(1) from ai_chat_log where tenant_id=? and date(create_time)=curdate() and rating=2",
+                Integer.class, tid);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("todayTotal", total == null ? 0 : total);
+        m.put("kbHitCount", kbHit == null ? 0 : kbHit);
+        m.put("goodCount", good == null ? 0 : good);
+        m.put("badCount", bad == null ? 0 : bad);
+
+        String range = normalizeTopRange(topRange);
+        m.put("topRange", range);
+        m.put("topQuestions", listTopQuestions(tid, range));
+        return m;
+    }
+
+    /** 兼容旧调用 */
+    public Map<String, Object> chatLogTodayStats() {
+        return chatLogTodayStats("today");
+    }
+
+    /**
+     * 高频咨询聚合：按完整提问文本分组。
+     * 排除智能管家多轮业务中的槽位短答（如「明天上午十点」「不开车」「确认」），
+     * 避免把对话过程中的回答误统计为咨询问题。
+     */
+    private List<Map<String, Object>> listTopQuestions(Long tid, String range) {
+        String timeSql = switch (range) {
+            case "7d" -> "and create_time >= date_sub(curdate(), interval 6 day)";
+            case "30d" -> "and create_time >= date_sub(curdate(), interval 29 day)";
+            default -> "and date(create_time)=curdate()";
+        };
+        // 多取一些候选，再在内存中过滤短答/槽位回复后取 TOP10
+        String sql = "select left(trim(question), 80) as question, count(1) as cnt "
+                + "from ai_chat_log where tenant_id=? " + timeSql + " "
+                + "and question is not null and trim(question)<>'' "
+                + "and char_length(trim(question)) >= 2 "
+                + "group by left(trim(question), 80) "
+                + "order by cnt desc, question asc limit 80";
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, tid);
+        List<Map<String, Object>> out = new ArrayList<>();
+        int rank = 1;
+        for (Map<String, Object> r : rows) {
+            String q = r.get("question") == null ? "" : String.valueOf(r.get("question")).trim();
+            if (!isConsultQuestionForTop(q)) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("rank", rank++);
+            item.put("question", q);
+            item.put("count", r.get("cnt") == null ? 0 : ((Number) r.get("cnt")).intValue());
+            out.add(item);
+            if (out.size() >= 10) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 是否计为「业主咨询问题」。
+     * 过滤：确认/取消、寒暄、驾车槽位、纯时间点、短姓名、无意图短句等业务过程回答。
+     */
+    private static boolean isConsultQuestionForTop(String question) {
+        if (!StringUtils.hasText(question)) {
+            return false;
+        }
+        String t = question.trim();
+        // 上传占位、链接
+        if (t.startsWith("[已上传") || t.startsWith("http://") || t.startsWith("https://")) {
+            return false;
+        }
+        // 确认 / 取消 / 跳过
+        if (t.matches("^(确认|取消|跳过|是|否|好的|好|嗯|行|可以|不用了|没了|ok|OK)[.!！。]?$")) {
+            return false;
+        }
+        // 纯寒暄
+        if (t.matches("^(你好|您好|在吗|嗨|哈喽|hello|hi|Hello|Hi)[.!！？]?$")) {
+            return false;
+        }
+        // 驾车槽位短答
+        if (t.matches("^(开|不开)?车$") || "不开车".equals(t) || "不驾车".equals(t)
+                || "驾车".equals(t) || "开车".equals(t) || "不开".equals(t)) {
+            return false;
+        }
+        // 纯时间/日期回答（业务追问来访时间）
+        if (t.matches("^\\d{4}[-/年].*") || t.matches("^\\d{1,2}[:：点].*")) {
+            return false;
+        }
+        if (t.matches(".*(明天|后天|大后天|今天|上午|下午|晚上|点钟|[0-9一二三四五六七八九十两]点).*")
+                && t.length() <= 24
+                && !hasConsultIntentKeyword(t)) {
+            return false;
+        }
+        // 短姓名/短词且无咨询意图（如「马兴桦」）
+        if (t.length() <= 4 && t.matches("^[\\u4e00-\\u9fa5A-Za-z]{1,4}$") && !hasConsultIntentKeyword(t)) {
+            return false;
+        }
+        // 过短且无意图
+        if (t.length() < 6 && !hasConsultIntentKeyword(t)) {
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean hasConsultIntentKeyword(String t) {
+        String[] keys = {
+                "怎么", "如何", "什么", "吗", "么", "呢", "帮我", "帮忙", "请问",
+                "查询", "查一下", "查下", "报修", "报事", "物业", "访客", "预约", "登记",
+                "欠费", "缴费", "交费", "车辆", "车牌", "制度", "规定", "活动", "快递",
+                "投诉", "开票", "发票", "停车", "噪音", "水电", "暖气", "门禁", "通行"
+        };
+        for (String k : keys) {
+            if (t.contains(k)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String normalizeTopRange(String topRange) {
+        if (!StringUtils.hasText(topRange)) return "today";
+        String r = topRange.trim().toLowerCase(Locale.ROOT);
+        return switch (r) {
+            case "7d", "7", "week" -> "7d";
+            case "30d", "30", "month" -> "30d";
+            default -> "today";
+        };
+    }
+
+    private static void appendSourceGroupFilter(StringBuilder sql, List<Object> args, String sourceGroup) {
+        if (!StringUtils.hasText(sourceGroup)) return;
+        String g = sourceGroup.trim().toLowerCase(Locale.ROOT);
+        switch (g) {
+            case "kb" -> sql.append("and source in ('tenant_kb','tenant_kb_llm','tenant_doc','tenant_doc_llm') ");
+            case "llm" -> sql.append("and source in ('llm_general','llm_general_fallback','mock_general','llm_http','mock_llm','mock') ");
+            case "biz" -> sql.append("and source like 'biz_%' ");
+            case "chitchat" -> sql.append("and source in ('mock_chitchat','llm_chitchat') ");
+            default -> {
+            }
+        }
+    }
+
+    private static String sourceGroupOf(String src) {
+        if (!StringUtils.hasText(src)) return "other";
+        if (src.startsWith("biz_")) return "biz";
+        return switch (src) {
+            case "tenant_kb", "tenant_kb_llm", "tenant_doc", "tenant_doc_llm" -> "kb";
+            case "mock_chitchat", "llm_chitchat" -> "chitchat";
+            case "llm_general", "llm_general_fallback", "mock_general", "llm_http", "mock_llm", "mock" -> "llm";
+            default -> "other";
+        };
+    }
+
+    private static String sourceLabelOf(String src) {
+        if (!StringUtils.hasText(src)) return "—";
+        if (src.startsWith("biz_")) return "业务流程";
+        return switch (src) {
+            case "tenant_kb", "tenant_kb_llm", "tenant_doc", "tenant_doc_llm" -> "问答知识库";
+            case "llm_general", "llm_general_fallback", "mock_general", "llm_http", "mock_llm", "mock" -> "大模型";
+            case "mock_chitchat", "llm_chitchat" -> "闲聊";
+            case "kb_miss" -> "知识库未命中";
+            default -> src;
+        };
+    }
+
+    /** 业主评价对话 1=好评 2=差评 */
+    public Map<String, Object> rateChatLog(Long id, Integer rating, String remark) {
+        requireTenant();
+        ensureChatLogExt();
+        if (rating == null || (rating != 1 && rating != 2)) {
+            throw new BizException("评价无效");
+        }
+        Long uid = TenantContext.getUserId();
+        AiChatLog row = chatLogMapper.selectById(id);
+        if (row == null || !Objects.equals(row.getTenantId(), TenantContext.getTenantId())) {
+            throw new BizException("记录不存在");
+        }
+        String role = TenantContext.getRole();
+        boolean staff = RoleConstants.isPropertyAdmin(role) || RoleConstants.isGridWorker(role)
+                || RoleConstants.isPlatformAdmin(role);
+        if (!staff && !Objects.equals(row.getUserId(), uid)) {
+            throw new BizException(403, "只能评价本人的对话");
+        }
+        row.setRating(rating);
+        row.setRatingRemark(StringUtils.hasText(remark) ? remark.trim() : null);
+        chatLogMapper.updateById(row);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", id);
+        m.put("rating", rating);
+        m.put("ratingLabel", rating == 1 ? "好评" : "差评");
+        return m;
+    }
+
+    private void ensureChatLogExt() {
+        ensureChatLogCol("rating", "alter table ai_chat_log add column rating tinyint null");
+        ensureChatLogCol("rating_remark", "alter table ai_chat_log add column rating_remark varchar(255) null");
+        ensureChatLogCol("user_nickname", "alter table ai_chat_log add column user_nickname varchar(64) null");
+        // RAG 排查字段：得分 / 召回片段 / 文档标题
+        ensureChatLogCol("rag_score", "alter table ai_chat_log add column rag_score double null comment 'RAG相似度'");
+        ensureChatLogCol("rag_chunk", "alter table ai_chat_log add column rag_chunk text null comment 'RAG召回片段'");
+        ensureChatLogCol("rag_doc_title", "alter table ai_chat_log add column rag_doc_title varchar(255) null");
+    }
+
+    private void ensureChatLogCol(String column, String alterSql) {
+        try {
+            Integer c = jdbcTemplate.queryForObject(
+                    "select count(1) from information_schema.columns where table_schema=database() "
+                            + "and table_name='ai_chat_log' and column_name=?",
+                    Integer.class, column);
+            if (c == null || c == 0) {
+                jdbcTemplate.execute(alterSql);
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     public List<AiKnowledge> listKb() {
@@ -244,10 +703,13 @@ public class AiService {
         checkQuota("audit");
         List<String> words = loadSensitiveWords();
         Map<String, Object> raw = mockAiClient.summaryAndAudit(req.getContent(), words);
-        if (useHttp() && Boolean.TRUE.equals(raw.get("pass"))) {
+        if (providerGateway.useLlm() && Boolean.TRUE.equals(raw.get("pass"))) {
             try {
                 String summary = thirdPartyAiClient.chatCompletion(
-                        "请用不超过40字总结社区公告", req.getContent());
+                        "请用不超过100字总结社区公告，不要换行", req.getContent());
+                if (StringUtils.hasText(summary) && summary.length() > 100) {
+                    summary = summary.substring(0, 97) + "...";
+                }
                 raw.put("summary", summary);
                 raw.put("source", "llm_http");
             } catch (Exception ignored) {
@@ -284,12 +746,13 @@ public class AiService {
         long start = System.currentTimeMillis();
         checkQuota("image");
         Map<String, Object> raw = mockAiClient.imageRepair(req.getImageUrl());
-        if (useHttp()) {
+        if (providerGateway.useLlm()) {
             try {
                 String prompt = """
                         请识别社区报修图片，只返回 JSON（不要 markdown），字段：
-                        facilityType（设施类型，如水管/电梯/路灯/门禁/墙面/绿化等）,
-                        damageLevel（轻度/中度/重度）,
+                        facilityType（设施类型，如路灯/电梯/健身器材/楼道门窗/水管等）,
+                        locationHint（位置建议，如几号楼楼道/单元门口/健身区）,
+                        damageLevel（轻微/中度/严重）,
                         suggestTitle（短标题）,
                         suggestDesc（一两句描述）,
                         confidence（0到1的小数）
@@ -319,8 +782,26 @@ public class AiService {
         resp.setDamageLevel(str(raw.get("damageLevel")));
         resp.setSuggestTitle(str(raw.get("suggestTitle")));
         resp.setSuggestDesc(str(raw.get("suggestDesc")));
-        resp.setConfidence(raw.get("confidence") instanceof Number n ? n.doubleValue() : 0.6);
-        resp.setProvider(str(raw.getOrDefault("provider", provider)));
+        resp.setLocationHint(str(raw.get("locationHint")));
+        double conf = raw.get("confidence") instanceof Number n ? n.doubleValue() : 0.6;
+        resp.setConfidence(conf);
+        resp.setNeedManual(raw.get("needManual") instanceof Boolean b ? b : conf < 0.85);
+        if (!StringUtils.hasText(resp.getLocationHint())) {
+            resp.setLocationHint("请补充具体位置（楼栋/单元/公共区域）");
+            if (Boolean.FALSE.equals(resp.getNeedManual()) && conf < 0.9) {
+                resp.setNeedManual(false);
+            }
+        }
+        resp.setProvider(str(raw.getOrDefault("provider", providerGateway.activeMode())));
+        aiFeatureService.saveImageLog(
+                req.getImageUrl(),
+                resp.getFacilityType(),
+                resp.getLocationHint(),
+                resp.getDamageLevel(),
+                resp.getConfidence(),
+                resp.getProvider(),
+                Boolean.TRUE.equals(resp.getNeedManual()),
+                null);
         logCall("image", true, start, resp.getFacilityType());
         return resp;
     }
@@ -342,14 +823,20 @@ public class AiService {
         resp.setScore(raw.get("score") instanceof Number n ? n.doubleValue() : 0.0);
         resp.setNeedGrid(Boolean.TRUE.equals(raw.get("needGrid")));
         resp.setAdvice(str(raw.get("advice")));
+        resp.setEmotionTags(str(raw.get("emotionTags")));
         resp.setAppealCreated(false);
 
-        if (Boolean.TRUE.equals(resp.getNeedGrid())
-                && TenantContext.getTenantId() != null
-                && TenantContext.getUserId() != null) {
-            Long appealId = createAppealAndNotifyGrid(req.getText(), resp.getSentiment(), resp.getScore());
+        Long caseId = aiFeatureService.createEmotionCase(
+                req.getText(),
+                resp.getSentiment(),
+                resp.getEmotionTags(),
+                resp.getScore(),
+                resp.getAdvice(),
+                Boolean.TRUE.equals(resp.getNeedGrid()));
+        resp.setCaseId(caseId);
+        if (Boolean.TRUE.equals(resp.getNeedGrid())) {
             resp.setAppealCreated(true);
-            resp.setAppealId(appealId);
+            resp.setAppealId(caseId);
         }
         logCall("emotion", true, start, resp.getSentiment());
         return resp;
@@ -405,7 +892,7 @@ public class AiService {
             resp.setMatched(scored.stream().limit(10).toList());
             resp.setTip("已按相似度匹配失物记录");
         }
-        resp.setProvider(provider);
+        resp.setProvider(providerGateway.activeMode());
         logCall("lost", true, start, "matched=" + resp.getMatched().size());
         return resp;
     }
@@ -415,15 +902,300 @@ public class AiService {
     }
 
     public Long publishLost(Map<String, String> body) {
-        jdbcTemplate.update(
-                "insert into lost_found(tenant_id,user_id,title,description,contact,image_url,status,create_time) values(?,?,?,?,?,?,'open',now())",
-                TenantContext.getTenantId(),
-                TenantContext.getUserId(),
-                body.get("title"),
-                body.get("description"),
-                body.get("contact"),
-                body.get("imageUrl"));
+        requireTenant();
+        Long tid = TenantContext.getTenantId();
+        Long uid = TenantContext.getUserId();
+        String title = body.get("title");
+        String description = body.get("description");
+        if (!StringUtils.hasText(title)) {
+            throw new BizException(400, "请填写标题");
+        }
+        // 发布前 AI 内容审核
+        AiAuditRequest auditReq = new AiAuditRequest();
+        auditReq.setBizType("lost");
+        auditReq.setContent((title == null ? "" : title) + "\n" + (description == null ? "" : description));
+        AiAuditResponse audit = audit(auditReq);
+        if (!Boolean.TRUE.equals(audit.getPass())) {
+            String hits = audit.getHitWords() == null || audit.getHitWords().isEmpty()
+                    ? "含不当内容"
+                    : String.join(",", audit.getHitWords());
+            throw new BizException(400, "AI内容审核未通过：" + hits);
+        }
+
+        String itemType = body.get("itemType");
+        if (itemType == null || itemType.isBlank()) itemType = body.getOrDefault("type", "found");
+        if (!"lost".equalsIgnoreCase(itemType)) itemType = "found";
+
+        Long houseId = parseLong(body.get("houseId"));
+        if (houseId == null) {
+            houseId = TenantContext.getHouseId();
+        }
+        String houseLabel = blankToNull(body.get("houseLabel"));
+        if (houseId == null) {
+            houseId = findDefaultHouseId(tid, uid);
+        }
+        if (!StringUtils.hasText(houseLabel) && houseId != null) {
+            houseLabel = resolveHouseLabel(tid, houseId);
+        }
+
+        String imageUrl = normalizeStoredImageUrl(blankToNull(body.get("imageUrl")));
+        String contactName = blankToNull(body.get("contactName"));
+        if (!StringUtils.hasText(contactName) && uid != null) {
+            contactName = findUserNickname(uid);
+        }
+        String category = blankToNull(body.get("category"));
+
+        try {
+            jdbcTemplate.update(
+                    "insert into lost_found(tenant_id,user_id,house_id,house_label,title,item_type,category,description,contact,contact_name,image_url,status,ai_audit_pass,claim_count,create_time) "
+                            + "values(?,?,?,?,?,?,?,?,?,?,?,'open',1,0,now())",
+                    tid,
+                    uid,
+                    houseId,
+                    houseLabel,
+                    title,
+                    itemType.toLowerCase(),
+                    category,
+                    description,
+                    body.get("contact"),
+                    contactName,
+                    imageUrl);
+        } catch (Exception e) {
+            // 兼容尚未加列的库
+            jdbcTemplate.update(
+                    "insert into lost_found(tenant_id,user_id,house_id,house_label,title,item_type,description,contact,contact_name,image_url,status,create_time) "
+                            + "values(?,?,?,?,?,?,?,?,?,?,'open',now())",
+                    tid,
+                    uid,
+                    houseId,
+                    houseLabel,
+                    title,
+                    itemType.toLowerCase(),
+                    description,
+                    body.get("contact"),
+                    contactName,
+                    imageUrl);
+        }
         return jdbcTemplate.queryForObject("select last_insert_id()", Long.class);
+    }
+
+    public List<Map<String, Object>> listLost(String status, String itemType) {
+        return listLost(status, itemType, null, null);
+    }
+
+    public List<Map<String, Object>> listLost(String status, String itemType, String category, String keyword) {
+        requireTenant();
+        // 居民可浏览本社区进行中信息；物业可按状态筛选
+        boolean staff = RoleConstants.isTenantStaff(TenantContext.getRole())
+                || RoleConstants.isPlatformAdmin(TenantContext.getRole());
+        StringBuilder sql = new StringBuilder(
+                "select l.*, u.nickname as publisher_name from lost_found l "
+                        + "left join sys_user u on u.id=l.user_id where l.tenant_id=? ");
+        List<Object> args = new ArrayList<>();
+        args.add(TenantContext.getTenantId());
+        if (!staff) {
+            // 居民默认只看进行中
+            sql.append("and l.status='open' ");
+        } else if (status != null && !status.isBlank()) {
+            sql.append("and l.status=? ");
+            args.add(status.trim());
+        }
+        if (itemType != null && !itemType.isBlank()) {
+            sql.append("and l.item_type=? ");
+            args.add(itemType.trim());
+        }
+        if (category != null && !category.isBlank()) {
+            sql.append("and l.category=? ");
+            args.add(category.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append("and (l.title like ? or l.description like ? or l.contact like ? or l.contact_name like ?) ");
+            String like = "%" + keyword.trim() + "%";
+            args.add(like);
+            args.add(like);
+            args.add(like);
+            args.add(like);
+        }
+        sql.append("order by l.id desc limit 200");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
+        List<Map<String, Object>> out = new ArrayList<>();
+        Long tid = TenantContext.getTenantId();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            r.forEach((k, v) -> {
+                if (k == null) return;
+                StringBuilder sb = new StringBuilder();
+                boolean up = false;
+                for (char c : k.toCharArray()) {
+                    if (c == '_') { up = true; continue; }
+                    sb.append(up ? Character.toUpperCase(c) : c);
+                    up = false;
+                }
+                if (v instanceof java.sql.Timestamp ts) v = ts.toLocalDateTime().toString().replace('T', ' ');
+                m.put(sb.toString(), v);
+            });
+            String it = String.valueOf(m.getOrDefault("itemType", "found"));
+            m.put("itemTypeLabel", "lost".equalsIgnoreCase(it) ? "失物" : "招领");
+            String st = String.valueOf(m.getOrDefault("status", ""));
+            m.put("statusLabel", "found".equals(st) || "closed".equals(st) ? "已找到/已认领" : "open".equals(st) ? "进行中" : st);
+
+            // 补全历史数据缺失的房屋展示名
+            Object houseLabel = m.get("houseLabel");
+            Object houseIdObj = m.get("houseId");
+            if (!hasTextObj(houseLabel) && houseIdObj != null) {
+                String label = resolveHouseLabel(tid, Long.valueOf(String.valueOf(houseIdObj)));
+                if (StringUtils.hasText(label)) {
+                    m.put("houseLabel", label);
+                }
+            }
+            if (!hasTextObj(m.get("houseLabel")) && m.get("userId") != null) {
+                Long hid = findDefaultHouseId(tid, Long.valueOf(String.valueOf(m.get("userId"))));
+                if (hid != null) {
+                    m.put("houseId", hid);
+                    String label = resolveHouseLabel(tid, hid);
+                    if (StringUtils.hasText(label)) {
+                        m.put("houseLabel", label);
+                    }
+                }
+            }
+
+            Object img = m.get("imageUrl");
+            if (img != null) {
+                m.put("imageUrl", normalizeStoredImageUrl(String.valueOf(img)));
+            }
+            // 统一主键，避免驱动返回 ID / id 不一致导致前端删除失败
+            Object rid = m.get("id");
+            if (rid == null) {
+                rid = m.get("ID");
+            }
+            if (rid != null) {
+                m.put("id", Long.valueOf(String.valueOf(rid)));
+            }
+            out.add(m);
+        }
+        return out;
+    }
+
+    private Long parseLong(String s) {
+        if (!StringUtils.hasText(s)) return null;
+        try {
+            return Long.valueOf(s.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String blankToNull(String s) {
+        return StringUtils.hasText(s) ? s.trim() : null;
+    }
+
+    private boolean hasTextObj(Object o) {
+        return o != null && StringUtils.hasText(String.valueOf(o)) && !"null".equalsIgnoreCase(String.valueOf(o));
+    }
+
+    /** App 可能把 /api 或完整网关地址写入库，统一成相对路径便于管理端预览 */
+    private String normalizeStoredImageUrl(String url) {
+        if (!StringUtils.hasText(url)) return null;
+        String u = url.trim();
+        if (u.startsWith("blob:") || u.startsWith("data:")) return u;
+        if (u.startsWith("http://") || u.startsWith("https://")) {
+            try {
+                java.net.URI uri = java.net.URI.create(u);
+                u = uri.getPath() == null ? u : uri.getPath();
+            } catch (Exception ignored) {
+            }
+        }
+        while (u.startsWith("/api/")) {
+            u = u.substring(4);
+        }
+        if (!u.startsWith("/")) u = "/" + u;
+        return u;
+    }
+
+    private Long findDefaultHouseId(Long tid, Long uid) {
+        if (tid == null || uid == null) return null;
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select house_id as houseId from user_house_bind where tenant_id=? and user_id=? "
+                            + "order by is_default desc, id asc limit 1",
+                    tid, uid);
+            if (rows.isEmpty() || rows.get(0).get("houseId") == null) return null;
+            return Long.valueOf(String.valueOf(rows.get(0).get("houseId")));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String resolveHouseLabel(Long tid, Long houseId) {
+        if (tid == null || houseId == null) return null;
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select community_name as communityName, building, unit, room_no as roomNo "
+                            + "from community_house where tenant_id=? and id=? limit 1",
+                    tid, houseId);
+            if (rows.isEmpty()) return null;
+            Map<String, Object> h = rows.get(0);
+            String building = strObj(h.get("building"));
+            String unit = strObj(h.get("unit"));
+            String room = strObj(h.get("roomNo"));
+            String shortLabel = building + unit + room;
+            String community = strObj(h.get("communityName"));
+            if (StringUtils.hasText(community) && StringUtils.hasText(shortLabel)) {
+                return community + " · " + shortLabel;
+            }
+            return StringUtils.hasText(shortLabel) ? shortLabel : community;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String findUserNickname(Long uid) {
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select nickname from sys_user where id=? limit 1", uid);
+            if (rows.isEmpty()) return null;
+            Object n = rows.get(0).get("nickname");
+            return n == null ? null : String.valueOf(n);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String strObj(Object o) {
+        return o == null ? "" : String.valueOf(o).trim();
+    }
+
+    public Map<String, Object> markLostFound(Long id) {
+        assertPropertyAdminOnly();
+        int n = jdbcTemplate.update(
+                "update lost_found set status='found' where id=? and tenant_id=?",
+                id, TenantContext.getTenantId());
+        if (n == 0) throw new BizException("记录不存在");
+        return listLost(null, null).stream().filter(m -> id.equals(Long.valueOf(String.valueOf(m.get("id")))))
+                .findFirst().orElse(Map.of("id", id, "status", "found"));
+    }
+
+    public void deleteLost(Long id) {
+        assertPropertyAdminOnly();
+        requireTenant();
+        if (id == null || id <= 0) {
+            throw new BizException(400, "无效的记录ID");
+        }
+        Long tid = TenantContext.getTenantId();
+        Integer exists = jdbcTemplate.queryForObject(
+                "select count(1) from lost_found where id=? and tenant_id=?",
+                Integer.class, id, tid);
+        if (exists == null || exists == 0) {
+            throw new BizException(404, "记录不存在或无权删除");
+        }
+        jdbcTemplate.update("delete from lost_found where id=? and tenant_id=?", id, tid);
+    }
+
+    private void assertPropertyAdminOnly() {
+        String role = TenantContext.getRole();
+        if (!RoleConstants.isPropertyAdmin(role) && !RoleConstants.isPlatformAdmin(role)) {
+            throw new BizException(403, "仅物业管理员可操作");
+        }
     }
 
     /* ===================== 6. 日程提醒 ===================== */
@@ -485,40 +1257,9 @@ public class AiService {
 
     /* ===================== 内部 ===================== */
 
-    private Optional<String> findKbAnswer(String question) {
-        Long tid = TenantContext.getTenantId();
-        List<AiKnowledge> list = knowledgeMapper.selectList(new LambdaQueryWrapper<AiKnowledge>()
-                .eq(tid != null, AiKnowledge::getTenantId, tid)
-                .eq(AiKnowledge::getStatus, 1)
-                .like(AiKnowledge::getQuestion, question)
-                .orderByDesc(AiKnowledge::getHitCount)
-                .last("limit 5"));
-        if (!list.isEmpty()) {
-            AiKnowledge best = list.get(0);
-            bumpHit(best);
-            return Optional.ofNullable(best.getAnswer());
-        }
-        // 问题包含知识库关键词（仅本租户）
-        List<AiKnowledge> all = knowledgeMapper.selectList(new LambdaQueryWrapper<AiKnowledge>()
-                .eq(tid != null, AiKnowledge::getTenantId, tid)
-                .eq(AiKnowledge::getStatus, 1)
-                .last("limit 80"));
-        for (AiKnowledge kb : all) {
-            if (kb.getQuestion() != null && question.contains(kb.getQuestion())) {
-                bumpHit(kb);
-                return Optional.ofNullable(kb.getAnswer());
-            }
-        }
-        return Optional.empty();
-    }
-
-    private void bumpHit(AiKnowledge kb) {
-        kb.setHitCount((kb.getHitCount() == null ? 0 : kb.getHitCount()) + 1);
-        knowledgeMapper.updateById(kb);
-    }
-
     private void saveChatLog(String question, AiChatResponse resp) {
         try {
+            ensureChatLogExt();
             AiChatLog logRow = new AiChatLog();
             logRow.setTenantId(TenantContext.getTenantId());
             logRow.setUserId(TenantContext.getUserId());
@@ -527,7 +1268,29 @@ public class AiService {
             logRow.setSource(resp.getSource());
             logRow.setTransferHuman(Boolean.TRUE.equals(resp.getTransferHuman()) ? 1 : 0);
             logRow.setCreateTime(LocalDateTime.now());
+            if (resp.getRagScore() != null) {
+                logRow.setRagScore(resp.getRagScore());
+            }
+            if (StringUtils.hasText(resp.getRagChunk())) {
+                String chunk = resp.getRagChunk();
+                logRow.setRagChunk(chunk.length() > 4000 ? chunk.substring(0, 4000) : chunk);
+            }
+            if (StringUtils.hasText(resp.getRagDocTitle())) {
+                logRow.setRagDocTitle(resp.getRagDocTitle());
+            }
+            try {
+                Long uid = TenantContext.getUserId();
+                if (uid != null) {
+                    List<Map<String, Object>> u = jdbcTemplate.queryForList(
+                            "select nickname from sys_user where id=? limit 1", uid);
+                    if (!u.isEmpty() && u.get(0).get("nickname") != null) {
+                        logRow.setUserNickname(String.valueOf(u.get(0).get("nickname")));
+                    }
+                }
+            } catch (Exception ignored) {
+            }
             chatLogMapper.insert(logRow);
+            resp.setLogId(logRow.getId());
         } catch (Exception e) {
             log.debug("chat log skip: {}", e.getMessage());
         }
@@ -574,7 +1337,7 @@ public class AiService {
 
     private List<String> loadSensitiveWords() {
         try {
-            return jdbcTemplate.queryForList("select word from sys_sensitive_word", String.class);
+            return aiFeatureService.loadMergedSensitiveWords();
         } catch (Exception e) {
             return List.of("赌博", "色情", "诈骗", "传销");
         }
@@ -620,10 +1383,6 @@ public class AiService {
         if (userId != null && TenantContext.getUserId() == null) {
             TenantContext.setUserId(userId);
         }
-    }
-
-    private boolean useHttp() {
-        return "http".equalsIgnoreCase(provider) && thirdPartyAiClient.available();
     }
 
     /** 从模型回复中提取 JSON（兼容 ```json 包裹） */

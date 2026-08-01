@@ -25,8 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 套餐拦截器（收费阶段启用）。
- * <p>当前 {@code gateway.package.enabled=false}，直接放行；接 SaaS 计费后再打开。
+ * 套餐功能拦截器。
+ * <p>默认 {@code gateway.package.enabled=true}，按 path→featureCode 校验当前租户有效功能。
  */
 @Component
 public class PackageDowngradeFilter implements GlobalFilter, Ordered {
@@ -39,7 +39,7 @@ public class PackageDowngradeFilter implements GlobalFilter, Ordered {
 
     public PackageDowngradeFilter(
             LeaseSnapshotReader leaseSnapshotReader,
-            @Value("${gateway.package.enabled:false}") boolean enabled,
+            @Value("${gateway.package.enabled:true}") boolean enabled,
             @Value("${gateway.package.extra-rules:}") String extraRules) {
         this.leaseSnapshotReader = leaseSnapshotReader;
         this.enabled = enabled;
@@ -54,6 +54,7 @@ public class PackageDowngradeFilter implements GlobalFilter, Ordered {
         pathFeature.put("/ai/schedule", FeatureCodes.AI_CHAT);
         pathFeature.put("/ai/", FeatureCodes.AI_CHAT);
         // 数据大屏
+        pathFeature.put("/stats/tenant/dashboard", FeatureCodes.DATA_DASHBOARD);
         pathFeature.put("/stats/dashboard", FeatureCodes.DATA_DASHBOARD);
         pathFeature.put("/stats/cockpit", FeatureCodes.DATA_DASHBOARD);
         pathFeature.put("/stats/screen", FeatureCodes.DATA_DASHBOARD);
@@ -64,12 +65,13 @@ public class PackageDowngradeFilter implements GlobalFilter, Ordered {
         pathFeature.put("/export", FeatureCodes.DATA_EXPORT);
         // 其它高阶
         pathFeature.put("/repair/vendor", FeatureCodes.VENDOR_MANAGE);
+        pathFeature.put("/store/", FeatureCodes.VENDOR_MANAGE);
+        pathFeature.put("/lost/", FeatureCodes.AI_LOST_MATCH);
         parseExtra(extraRules);
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        // 套餐收费未上线：全部放行
         if (!enabled) {
             return chain.filter(exchange);
         }
@@ -150,7 +152,8 @@ public class PackageDowngradeFilter implements GlobalFilter, Ordered {
     private Mono<Void> writeFail(ServerWebExchange exchange, String msg) {
         exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-        String body = "{\"code\":40303,\"msg\":\"" + msg.replace("\"", "'") + "\",\"data\":null}";
+        String body = "{\"code\":40303,\"msg\":\"" + msg.replace("\"", "'")
+                + "\",\"error\":\"FEATURE_NOT_AVAILABLE\",\"data\":null}";
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
         return exchange.getResponse().writeWith(Mono.just(buffer));

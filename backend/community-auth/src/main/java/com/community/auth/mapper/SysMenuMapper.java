@@ -27,4 +27,17 @@ public interface SysMenuMapper extends BaseMapper<SysMenu> {
             WHERE ur.user_id = #{userId} AND m.status = 1 AND m.perms IS NOT NULL AND m.perms <> ''
             """)
     List<String> selectPermsByUserId(@Param("userId") Long userId);
+
+    @Select("""
+            SELECT m.* FROM sys_menu m
+            INNER JOIN sys_role_menu rm ON m.id = rm.menu_id
+            WHERE rm.role_id = #{roleId} AND m.status = 1
+            ORDER BY m.sort_no ASC, m.id ASC
+            """)
+    List<SysMenu> selectMenusByRoleId(@Param("roleId") Long roleId);
+
+    @Select("""
+            SELECT menu_id FROM sys_role_menu WHERE role_id = #{roleId}
+            """)
+    List<Long> selectMenuIdsByRoleId(@Param("roleId") Long roleId);
 }

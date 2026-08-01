@@ -24,7 +24,7 @@
       type="info"
       :closable="false"
       show-icon
-      title="仅物业管理员可新增/启停账号；网格员可查看列表"
+      title="仅物业管理员可新增/启停/删除账号；网格员可查看列表"
       style="margin-bottom: 12px"
     />
 
@@ -53,7 +53,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="createTime" label="创建时间" width="170" />
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="canManage"
@@ -72,6 +72,16 @@
             @click="onResetPwd(row)"
           >
             重置密码
+          </el-button>
+          <el-button
+            v-if="canManage"
+            link
+            type="danger"
+            :loading="actingId === row.id"
+            :disabled="row.id === Number(user.userId)"
+            @click="onDelete(row)"
+          >
+            删除
           </el-button>
         </template>
       </el-table-column>
@@ -122,6 +132,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import {
   createStaffUser,
+  deleteStaffUser,
   listStaffUsers,
   resetStaffPassword,
   updateUserStatus,
@@ -278,6 +289,30 @@ async function onResetPwd(row: Row) {
   try {
     await resetStaffPassword(row.id)
     ElMessage.success('密码已重置为 123456')
+  } finally {
+    actingId.value = null
+  }
+}
+
+async function onDelete(row: Row) {
+  if (row.id === Number(user.userId)) {
+    ElMessage.warning('不能删除当前登录账号')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除「${row.nickname}」（${row.phone}）？删除后无法登录，且列表中不再显示。`,
+      '删除账号',
+      { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' },
+    )
+  } catch {
+    return
+  }
+  actingId.value = row.id
+  try {
+    await deleteStaffUser(row.id)
+    ElMessage.success('已删除')
+    await load()
   } finally {
     actingId.value = null
   }

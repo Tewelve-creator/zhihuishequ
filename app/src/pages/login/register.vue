@@ -4,7 +4,7 @@
       <view class="card-title">居民注册 · 绑定租赁社区</view>
       <view class="input-row">
         <text class="label">手机号</text>
-        <input v-model="form.phone" type="number" maxlength="11" placeholder="手机号" />
+        <input v-model="form.phone" type="number" maxlength="11" placeholder="登录账号（11位手机号）" />
       </view>
       <view class="input-row">
         <text class="label">验证码</text>
@@ -43,8 +43,8 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
-import { register, getSms, login } from '../../api/auth'
+import { onMounted, reactive, ref } from 'vue'
+import { register, getSms, login, listPublicTenants } from '../../api/auth'
 import { useUserStore } from '../../store/user'
 import { DEMO_TENANTS } from '../../utils/constants'
 
@@ -58,9 +58,20 @@ const form = reactive({
 })
 const smsCode = ref('')
 const tenantName = ref('')
-const tenants = DEMO_TENANTS
+const tenants = ref([...DEMO_TENANTS])
 const showTenant = ref(false)
 const loading = ref(false)
+
+async function loadTenants() {
+  try {
+    const list = await listPublicTenants()
+    if (Array.isArray(list) && list.length) {
+      tenants.value = list
+    }
+  } catch {
+    /* 保留演示兜底 */
+  }
+}
 
 function pick(t) {
   form.tenantId = t.id
@@ -83,6 +94,10 @@ async function onSubmit() {
     uni.showToast({ title: '请完整填写信息并选择社区', icon: 'none' })
     return
   }
+  if (!/^1\d{10}$/.test(String(form.phone).trim())) {
+    uni.showToast({ title: '请输入正确的 11 位手机号', icon: 'none' })
+    return
+  }
   if (smsCode.value !== '123456') {
     uni.showToast({ title: '验证码错误', icon: 'none' })
     return
@@ -103,6 +118,10 @@ async function onSubmit() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  loadTenants()
+})
 </script>
 
 <style lang="scss" scoped>

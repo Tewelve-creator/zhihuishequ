@@ -38,7 +38,7 @@
     <view class="glass-card">
       <view class="titles">
         <text class="title">AI智慧社区居民端</text>
-        <text class="subtitle">便民服务 · 报修缴费 · 智能提醒</text>
+        <text class="subtitle">登录账号为 11 位手机号 · 报修缴费 · 智能提醒</text>
       </view>
 
       <view class="field">
@@ -46,7 +46,7 @@
           v-model="phone"
           type="number"
           maxlength="11"
-          placeholder="请输入手机号"
+          placeholder="请输入手机号（登录账号）"
           placeholder-class="ph"
         />
       </view>
@@ -100,20 +100,33 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { login } from '../../api/auth'
+import { onMounted, ref } from 'vue'
+import { login, listPublicTenants } from '../../api/auth'
 import { useUserStore } from '../../store/user'
+import { useHouseStore } from '../../store/house'
 import { DEMO_TENANTS } from '../../utils/constants'
 
 const store = useUserStore()
+const houseStore = useHouseStore()
 const phone = ref('')
 const password = ref('')
 const tenantId = ref(null)
 const tenantName = ref('')
-const tenants = DEMO_TENANTS
+const tenants = ref([...DEMO_TENANTS])
 const showTenant = ref(false)
 const loading = ref(false)
 const agreed = ref(true)
+
+async function loadTenants() {
+  try {
+    const list = await listPublicTenants()
+    if (Array.isArray(list) && list.length) {
+      tenants.value = list
+    }
+  } catch {
+    /* 保留演示兜底 */
+  }
+}
 
 function pickTenant(t) {
   if (!t) {
@@ -129,16 +142,18 @@ function pickTenant(t) {
 function fillDemo() {
   phone.value = '13800000021'
   password.value = '123456'
-  tenantId.value = 1
-  tenantName.value = '阳光花园社区'
+  const first = tenants.value[0]
+  tenantId.value = first?.id ?? 1
+  tenantName.value = first?.name || '阳光花园社区'
   agreed.value = true
 }
 
 function fillStaffHint() {
   phone.value = '13800000001'
   password.value = '123456'
-  tenantId.value = 1
-  tenantName.value = '阳光花园社区'
+  const first = tenants.value[0]
+  tenantId.value = first?.id ?? 1
+  tenantName.value = first?.name || '阳光花园社区'
   agreed.value = true
   uni.showToast({ title: '已填入物业演示账号', icon: 'none' })
 }
@@ -151,22 +166,18 @@ function goRegister() {
 function normalizeFeatures(raw) {
   if (Array.isArray(raw) && raw.length) return raw.join(',')
   if (typeof raw === 'string' && raw.trim()) return raw.trim()
-  // 库未写 features 时默认开通居民常用能力（与专业版演示一致）
-  return [
-    'basic_repair',
-    'basic_notice',
-    'ai_chat',
-    'ai_image_repair',
-    'ai_emotion',
-    'ai_lost_match',
-    'data_dashboard',
-    'data_export'
-  ].join(',')
+  // 库未写 features 时按免费版保底，避免误开高级能力
+  return 'basic_repair,basic_notice'
 }
 
 async function onLogin() {
-  if (!phone.value || !password.value) {
+  const mobile = String(phone.value || '').trim()
+  if (!mobile || !password.value) {
     uni.showToast({ title: '请填写手机号和密码', icon: 'none' })
+    return
+  }
+  if (!/^1\d{10}$/.test(mobile)) {
+    uni.showToast({ title: '请输入正确的 11 位手机号', icon: 'none' })
     return
   }
   if (!agreed.value) {
@@ -176,14 +187,14 @@ async function onLogin() {
   loading.value = true
   try {
     const body = {
-      phone: phone.value,
+      phone: mobile,
       password: password.value,
       clientType: 'APP'
     }
     if (tenantId.value != null) body.tenantId = tenantId.value
     const data = await login(body)
-    // 兼容 features 为数组或空：归一化为 CSV，空则用演示默认开通集
-    const feat = normalizeFeatures(data?.features)
+    // 兼容 features / effectiveFeatureCodes；空则免费版保底
+    const feat = normalizeFeatures(data?.effectiveFeatureCodes || data?.features)
     store.setSession({
       ...data,
       features: feat,
@@ -195,15 +206,33 @@ async function onLogin() {
     if (tenantName.value) {
       uni.setStorageSync('communityName', tenantName.value)
     }
+    // 居民：写入房屋上下文；未绑定则引导绑定
+    if (!store.isStaff) {
+      houseStore.applyLogin(data || {})
+    }
     const tip = store.isGridWorker
       ? '网格员登录成功'
       : store.isStaff
         ? '物业管理员登录成功'
         : '登录成功'
     uni.showToast({ title: tip, icon: 'success' })
-    // 按角色进入对应端首页（同一 tab，内容差异化渲染）
     setTimeout(() => {
       store.enterHome()
+      if (!store.isStaff && (data?.needBindHouse || !houseStore.hasHouse)) {
+        setTimeout(() => {
+          uni.showModal({
+            title: '绑定房屋',
+            content: '首次使用请先绑定您的房屋，以便报修、缴费等服务精准到户。',
+            confirmText: '去绑定',
+            showCancel: true,
+            success: (r) => {
+              if (r.confirm) {
+                uni.navigateTo({ url: '/pages/house/bind' })
+              }
+            }
+          })
+        }, 500)
+      }
     }, 400)
   } catch (e) {
     // toast 已在 request 中处理
@@ -211,11 +240,15 @@ async function onLogin() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  loadTenants()
+})
 </script>
 
 <style lang="scss" scoped>
 .login-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(165deg, #d8f5ec 0%, #e8f8f3 38%, #f3fbf8 70%, #ffffff 100%);

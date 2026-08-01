@@ -1,0 +1,65 @@
+/* H5 安全区适配：不改动 uni 页面结构，避免正文顶到导航栏下 */
+
+/* 真机：仅给系统导航 / Tab 补安全区，不动 page-body 的 overflow / 定位 */
+@media screen and (max-width: 459px) {
+  .uni-page-head,
+  uni-page-head {
+    padding-top: constant(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top);
+    box-sizing: content-box;
+  }
+
+  .uni-tabbar,
+  .uni-tabbar-bottom,
+  uni-tabbar {
+    padding-bottom: constant(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: content-box;
+  }
+}
+
+/* 页面壳用弹性高度，禁止再写死 100vh（已统一 100dvh 的页面可继续用） */
+.page {
+  box-sizing: border-box;
+  min-height: 100%;
+  min-height: 100dvh;
+  padding-bottom: calc(32rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+.page-safe {
+  box-sizing: border-box;
+  min-height: 100%;
+  min-height: 100dvh;
+  padding-bottom: calc(32rpx + 100rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(32rpx + 100rpx + env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.foot-bar,
+.dock,
+.bottom-bar,
+.bar-bottom,
+.safe-footer {
+  padding-bottom: calc(16rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+/* 聊天输入条：仅真机补安全区，避免桌面预览框再垫出一大截空白 */
+@media screen and (max-width: 459px) {
+  .composer {
+    padding-bottom: calc(12rpx + constant(safe-area-inset-bottom));
+    padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+  }
+}

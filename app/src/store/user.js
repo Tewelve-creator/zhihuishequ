@@ -3,7 +3,7 @@
  * 登录后按 role 区分居民端 / 物业端（管理员 · 网格员）
  */
 import { reactive } from 'vue'
-import { isStaffRole } from '../utils/constants'
+import { hasFeature, isStaffRole } from '../utils/constants'
 import {
   canAccess,
   normalizeRole,
@@ -13,6 +13,7 @@ import {
   homePathAfterLogin,
   PERMS
 } from '../utils/roleAccess'
+import { houseStore } from './house'
 
 export const userStore = reactive({
   token: '',
@@ -20,6 +21,7 @@ export const userStore = reactive({
   tenantId: null,
   role: '',
   nickname: '',
+  avatar: '',
   features: '',
   tenantStatus: 'active',
   largeFont: false,
@@ -58,11 +60,20 @@ export const userStore = reactive({
   },
 
   /**
-   * 套餐功能码（收费暂未启用：一律 true）
+   * 套餐功能码（与登录 features / 租户套餐对齐）
    * 角色权限请用 canPerm(PERMS.xxx)
    */
-  can(_code) {
-    return true
+  can(code) {
+    if (!code) return true
+    if (this.isFrozen) return false
+    if (this.isDegraded) {
+      return code === 'basic_repair' || code === 'basic_notice'
+    }
+    // 未写入 features 时仅保底基础能力，避免误开高级功能
+    if (!this.features) {
+      return code === 'basic_repair' || code === 'basic_notice'
+    }
+    return hasFeature(this.features, code)
   },
 
   hydrate() {
@@ -77,6 +88,7 @@ export const userStore = reactive({
     }
     this.role = uni.getStorageSync('role') || ''
     this.nickname = uni.getStorageSync('nickname') || ''
+    this.avatar = uni.getStorageSync('avatar') || ''
     this.features = uni.getStorageSync('features') || ''
     this.tenantStatus = uni.getStorageSync('tenantStatus') || 'active'
     this.largeFont = !!uni.getStorageSync('largeFont')
@@ -88,6 +100,7 @@ export const userStore = reactive({
     this.tenantId = data.tenantId
     this.role = data.role || ''
     this.nickname = data.nickname || ''
+    this.avatar = data.avatar || ''
     this.features = data.features || ''
     this.tenantStatus = data.tenantStatus || 'active'
     uni.setStorageSync('token', this.token)
@@ -97,8 +110,21 @@ export const userStore = reactive({
     uni.setStorageSync('loginTenantId', this.tenantId)
     uni.setStorageSync('role', this.role)
     uni.setStorageSync('nickname', this.nickname)
+    uni.setStorageSync('avatar', this.avatar)
     uni.setStorageSync('features', this.features)
     uni.setStorageSync('tenantStatus', this.tenantStatus)
+  },
+
+  /** 更新本地昵称/头像（改资料后调用） */
+  updateProfileLocal({ nickname, avatar } = {}) {
+    if (nickname != null) {
+      this.nickname = nickname
+      uni.setStorageSync('nickname', nickname)
+    }
+    if (avatar !== undefined) {
+      this.avatar = avatar || ''
+      uni.setStorageSync('avatar', this.avatar)
+    }
   },
 
   /** 登录成功后的落地页（两端同一首页，内容按角色渲染） */
@@ -128,8 +154,10 @@ export const userStore = reactive({
     this.tenantId = null
     this.role = ''
     this.nickname = ''
+    this.avatar = ''
     this.features = ''
     this.tenantStatus = 'active'
+    houseStore.clear()
     ;[
       'token',
       'userId',
@@ -137,16 +165,26 @@ export const userStore = reactive({
       'loginTenantId',
       'role',
       'nickname',
+      'avatar',
       'features',
-      'tenantStatus'
+      'tenantStatus',
+      'currentHouseId',
+      'currentHouse',
+      'boundHouses'
     ].forEach((k) => {
       uni.removeStorageSync(k)
     })
     uni.reLaunch({ url: '/pages/login/login' })
   },
 
-  guardFeature(_code, _tip) {
-    return true
+  /** 无套餐能力时 toast「暂未开放」，返回是否放行 */
+  guardFeature(code, tip) {
+    if (this.can(code)) return true
+    uni.showToast({
+      title: tip || '暂未开放',
+      icon: 'none'
+    })
+    return false
   },
 
   /** 无角色权限时 toast，返回是否放行 */

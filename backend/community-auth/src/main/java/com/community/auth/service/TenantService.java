@@ -1,24 +1,32 @@
 package com.community.auth.service;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.community.auth.dto.TenantAdminAccountRequest;
 import com.community.auth.dto.TenantCreateRequest;
 import com.community.auth.entity.SaasOrder;
 import com.community.auth.entity.SysPackage;
 import com.community.auth.entity.SysTenant;
+import com.community.auth.entity.SysUser;
 import com.community.auth.mapper.SaasOrderMapper;
 import com.community.auth.mapper.SysTenantMapper;
+import com.community.auth.mapper.SysUserMapper;
 import com.community.auth.vo.TenantLeaseVO;
 import com.community.auth.vo.TenantStatsVO;
+import cn.dev33.satoken.stp.StpUtil;
+import com.community.common.auth.AuthConstants;
+import com.community.common.auth.LoginUser;
 import com.community.common.constant.FeatureCodes;
 import com.community.common.constant.RoleConstants;
-import com.community.common.desensitize.DesensitizeUtil;
 import com.community.common.exception.BizException;
 import com.community.common.exception.ErrorCode;
 import com.community.common.result.PageResult;
 import com.community.common.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -39,8 +47,12 @@ public class TenantService {
 
     private final SysTenantMapper tenantMapper;
     private final SaasOrderMapper orderMapper;
+    private final SysUserMapper userMapper;
     private final PackageService packageService;
     private final LeaseCacheService leaseCacheService;
+    private final OperLogService operLogService;
+    private final JdbcTemplate jdbcTemplate;
+    private final AuthService authService;
 
     public PageResult<SysTenant> page(long page, long size, String keyword) {
         if (RoleConstants.isPlatformAdmin(TenantContext.getRole())) {
@@ -49,10 +61,6 @@ public class TenantService {
                     new LambdaQueryWrapper<SysTenant>()
                             .like(StringUtils.hasText(keyword), SysTenant::getName, keyword)
                             .orderByDesc(SysTenant::getId));
-            // 运营列表脱敏联系人手机，不返回隐私明细外的扩展
-            for (SysTenant t : p.getRecords()) {
-                t.setContactPhone(DesensitizeUtil.phone(t.getContactPhone()));
-            }
             return PageResult.of(p.getCurrent(), p.getSize(), p.getTotal(), p.getRecords());
         }
         Long tid = TenantContext.getTenantId();
@@ -70,14 +78,21 @@ public class TenantService {
         if (t == null) {
             throw new BizException(ErrorCode.TENANT_NOT_FOUND);
         }
-        if (RoleConstants.isPlatformAdmin(TenantContext.getRole())) {
-            t.setContactPhone(DesensitizeUtil.phone(t.getContactPhone()));
-        }
         return t;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public SysTenant create(TenantCreateRequest req) {
         assertPlatform();
+        String adminPhone = req.getAdminPhone() == null ? "" : req.getAdminPhone().trim();
+        String adminPassword = req.getAdminPassword() == null ? "" : req.getAdminPassword().trim();
+        if (!StringUtils.hasText(adminPhone)) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "请设置管理端账号（手机号）");
+        }
+        if (!StringUtils.hasText(adminPassword) || adminPassword.length() < 6) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "管理端密码至少 6 位");
+        }
+
         SysTenant body = new SysTenant();
         body.setName(req.getName());
         body.setAddress(req.getAddress());
@@ -96,6 +111,20 @@ public class TenantService {
         body.setExpireTime(req.getExpireTime() != null ? req.getExpireTime() : LocalDateTime.now().plusDays(7));
         tenantMapper.insert(body);
         leaseCacheService.publish(body);
+
+        // 同步开通物业管理端账号
+        SysUser staff = new SysUser();
+        staff.setTenantId(body.getId());
+        staff.setPhone(adminPhone);
+        staff.setPassword(adminPassword);
+        staff.setNickname(StringUtils.hasText(req.getAdminNickname())
+                ? req.getAdminNickname().trim()
+                : (StringUtils.hasText(req.getContactName()) ? req.getContactName() : adminPhone));
+        staff.setRole(RoleConstants.PROPERTY_ADMIN);
+        authService.createStaff(staff);
+
+        operLogService.write("tenant", "create",
+                String.format("开通租户 %s(%d)，管理端账号 %s", body.getName(), body.getId(), adminPhone));
         return body;
     }
 
@@ -150,6 +179,50 @@ public class TenantService {
         t.setUpdateTime(LocalDateTime.now());
         tenantMapper.updateById(t);
         leaseCacheService.publish(t);
+        operLogService.write("tenant", "setStatus",
+                String.format("租户 %s(%d) 状态 -> %s", t.getName(), id, status));
+    }
+
+    public SysTenant updateAiQuota(Long id, Integer aiQuota) {
+        assertPlatform();
+        if (aiQuota == null || aiQuota < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "aiQuota 须为非负整数");
+        }
+        SysTenant t = tenantMapper.selectById(id);
+        if (t == null) {
+            throw new BizException(ErrorCode.TENANT_NOT_FOUND);
+        }
+        t.setAiQuota(aiQuota);
+        t.setUpdateTime(LocalDateTime.now());
+        tenantMapper.updateById(t);
+        leaseCacheService.publish(t);
+        operLogService.write("tenant", "updateAiQuota",
+                String.format("租户 %s(%d) AI 额度 -> %d", t.getName(), id, aiQuota));
+        return t;
+    }
+
+    /** 平台：单独授权租户功能码（不改套餐） */
+    public SysTenant updateFeatures(Long id, List<String> featureCodes) {
+        assertPlatform();
+        SysTenant t = tenantMapper.selectById(id);
+        if (t == null) {
+            throw new BizException(ErrorCode.TENANT_NOT_FOUND);
+        }
+        if (featureCodes == null) {
+            featureCodes = List.of();
+        }
+        String csv = featureCodes.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .collect(java.util.stream.Collectors.joining(","));
+        t.setFeatures(csv);
+        t.setUpdateTime(LocalDateTime.now());
+        tenantMapper.updateById(t);
+        leaseCacheService.publish(t);
+        operLogService.write("tenant", "updateFeatures",
+                String.format("租户 %s(%d) 功能授权 -> %s", t.getName(), id, csv));
+        return t;
     }
 
     /** 降级保底功能码 */
@@ -167,16 +240,177 @@ public class TenantService {
         tenantMapper.deleteById(id);
     }
 
+    /** 查询租户物业管理端账号（不含密码） */
+    public Map<String, Object> getAdminAccount(Long tenantId) {
+        assertPlatform();
+        if (tenantMapper.selectById(tenantId) == null) {
+            throw new BizException(ErrorCode.TENANT_NOT_FOUND);
+        }
+        TenantContext.setSkipTenant(true);
+        try {
+            SysUser admin = findPropertyAdmin(tenantId);
+            Map<String, Object> row = new HashMap<>();
+            row.put("tenantId", tenantId);
+            if (admin == null) {
+                row.put("exists", false);
+                return row;
+            }
+            row.put("exists", true);
+            row.put("userId", admin.getId());
+            row.put("adminPhone", admin.getPhone());
+            row.put("adminNickname", admin.getNickname());
+            row.put("status", admin.getStatus());
+            return row;
+        } finally {
+            TenantContext.setSkipTenant(true);
+        }
+    }
+
+    /** 设置/重置租户物业管理端账号 */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> upsertAdminAccount(Long tenantId, TenantAdminAccountRequest req) {
+        assertPlatform();
+        if (tenantMapper.selectById(tenantId) == null) {
+            throw new BizException(ErrorCode.TENANT_NOT_FOUND);
+        }
+        String phone = req.getAdminPhone() == null ? "" : req.getAdminPhone().trim();
+        if (!StringUtils.hasText(phone)) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "请填写管理端账号（手机号）");
+        }
+        String password = req.getAdminPassword() == null ? null : req.getAdminPassword().trim();
+        String nickname = StringUtils.hasText(req.getAdminNickname()) ? req.getAdminNickname().trim() : null;
+
+        TenantContext.setSkipTenant(true);
+        try {
+            SysUser admin = findPropertyAdmin(tenantId);
+            if (admin == null) {
+                if (!StringUtils.hasText(password) || password.length() < 6) {
+                    throw new BizException(ErrorCode.BAD_REQUEST, "新建管理端账号时密码至少 6 位");
+                }
+                SysUser staff = new SysUser();
+                staff.setTenantId(tenantId);
+                staff.setPhone(phone);
+                staff.setPassword(password);
+                staff.setNickname(nickname != null ? nickname : phone);
+                staff.setRole(RoleConstants.PROPERTY_ADMIN);
+                authService.createStaff(staff);
+            } else {
+                // 手机号冲突（同租户其他账号）
+                if (!phone.equals(admin.getPhone())) {
+                    Long cnt = userMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+                            .eq(SysUser::getPhone, phone)
+                            .eq(SysUser::getTenantId, tenantId)
+                            .ne(SysUser::getId, admin.getId()));
+                    if (cnt != null && cnt > 0) {
+                        throw new BizException(ErrorCode.PHONE_EXISTS);
+                    }
+                    admin.setPhone(phone);
+                }
+                if (nickname != null) {
+                    admin.setNickname(nickname);
+                }
+                if (StringUtils.hasText(password)) {
+                    if (password.length() < 6) {
+                        throw new BizException(ErrorCode.BAD_REQUEST, "管理端密码至少 6 位");
+                    }
+                    admin.setPassword(DigestUtil.md5Hex(password));
+                }
+                admin.setUpdateTime(LocalDateTime.now());
+                userMapper.updateById(admin);
+            }
+            operLogService.write("tenant", "upsertAdmin",
+                    String.format("租户 %d 管理端账号 -> %s", tenantId, phone));
+            return getAdminAccount(tenantId);
+        } finally {
+            TenantContext.setSkipTenant(true);
+        }
+    }
+
+    private SysUser findPropertyAdmin(Long tenantId) {
+        return userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getTenantId, tenantId)
+                .eq(SysUser::getRole, RoleConstants.PROPERTY_ADMIN)
+                .orderByAsc(SysUser::getId)
+                .last("limit 1"));
+    }
+
     public List<SysTenant> listPublic() {
         TenantContext.setSkipTenant(true);
         try {
+            // 登录可选社区：排除停用；降级/冻结仍可登录以便续费/运维
             return tenantMapper.selectList(new LambdaQueryWrapper<SysTenant>()
-                    .eq(SysTenant::getStatus, "active")
-                    .select(SysTenant::getId, SysTenant::getName, SysTenant::getAddress)
+                    .ne(SysTenant::getStatus, "disabled")
+                    .select(SysTenant::getId, SysTenant::getName, SysTenant::getAddress, SysTenant::getStatus)
                     .orderByAsc(SysTenant::getId));
         } finally {
             TenantContext.setSkipTenant(false);
         }
+    }
+
+    /**
+     * 登录页：根据账号自动识别所属社区（不返回密码等敏感信息）。
+     * portal=property → 物业管理员/网格员；portal=merchant → 商户。
+     */
+    public List<Map<String, Object>> resolveCommunitiesByPhone(String phone, String portal) {
+        if (!StringUtils.hasText(phone)) {
+            return Collections.emptyList();
+        }
+        String p = phone.trim();
+        String portalKey = StringUtils.hasText(portal) ? portal.trim().toLowerCase() : "property";
+        TenantContext.setSkipTenant(true);
+        try {
+            List<SysUser> users = userMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                    .eq(SysUser::getPhone, p)
+                    .eq(SysUser::getStatus, 1));
+            if (users == null || users.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (SysUser u : users) {
+                String role = u.getRole();
+                boolean match = "merchant".equals(portalKey)
+                        ? RoleConstants.isStoreMerchant(role)
+                        : RoleConstants.isTenantStaff(role);
+                if (!match || u.getTenantId() == null) {
+                    continue;
+                }
+                SysTenant t = tenantMapper.selectById(u.getTenantId());
+                if (t == null || "disabled".equals(t.getStatus())) {
+                    continue;
+                }
+                Map<String, Object> row = new HashMap<>();
+                row.put("id", t.getId());
+                row.put("name", t.getName());
+                row.put("address", t.getAddress());
+                row.put("status", t.getStatus());
+                row.put("role", role);
+                row.put("packageId", t.getPackageId());
+                row.put("packageName", resolvePackageName(t.getPackageId()));
+                try {
+                    if (t.getPackageId() != null) {
+                        SysPackage pkg = packageService.getById(t.getPackageId());
+                        if (pkg != null) {
+                            row.put("packageCode", pkg.getCode());
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+                out.add(row);
+            }
+            return out;
+        } finally {
+            TenantContext.setSkipTenant(false);
+        }
+    }
+
+    /** 已登录：按当前手机号列出可切换社区 */
+    public List<Map<String, Object>> listMyCommunities(String portal) {
+        StpUtil.checkLogin();
+        Object sessionUser = StpUtil.getSession().get(AuthConstants.SESSION_LOGIN_USER);
+        if (!(sessionUser instanceof LoginUser lu) || !StringUtils.hasText(lu.getPhone())) {
+            return Collections.emptyList();
+        }
+        return resolveCommunitiesByPhone(lu.getPhone(), portal);
     }
 
     /** 物业：查看自身套餐与到期预警 */
@@ -235,12 +469,24 @@ public class TenantService {
             row.put("name", t.getName());
             row.put("status", t.getStatus());
             row.put("packageId", t.getPackageId());
+            row.put("packageName", resolvePackageName(t.getPackageId()));
             row.put("expireTime", t.getExpireTime());
             row.put("daysLeft", t.getExpireTime() == null ? null
                     : ChronoUnit.DAYS.between(LocalDateTime.now(), t.getExpireTime()));
             rows.add(row);
         }
         return rows;
+    }
+
+    private String resolvePackageName(Long packageId) {
+        if (packageId == null) {
+            return null;
+        }
+        try {
+            return packageService.getById(packageId).getName();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private TenantLeaseVO buildLease(Long tenantId) {
@@ -255,18 +501,30 @@ public class TenantService {
             vo.setTenantName(t.getName());
             vo.setStatus(t.getStatus());
             vo.setPackageId(t.getPackageId());
-            vo.setFeatures(splitFeatures(t.getFeatures()));
             vo.setExpireTime(t.getExpireTime());
             vo.setAiQuota(t.getAiQuota());
+            vo.setTodayAiCalls(countTodayAiCalls(tenantId));
+            List<String> tenantFeatures = splitFeatures(t.getFeatures());
             if (t.getPackageId() != null) {
                 try {
                     SysPackage pkg = packageService.getById(t.getPackageId());
                     vo.setPackageName(pkg.getName());
                     vo.setPackageCode(pkg.getCode());
+                    vo.setPackageSortNo(pkg.getSortNo());
+                    List<String> pkgFeatures = packageService.featureCodes(pkg.getId());
+                    vo.setPackageFeatures(pkgFeatures == null ? List.of() : pkgFeatures);
+                    // 与运营端一致：租户未单独授权时回退套餐默认功能
+                    if (tenantFeatures.isEmpty() && pkgFeatures != null && !pkgFeatures.isEmpty()) {
+                        tenantFeatures = pkgFeatures;
+                    }
+                    if (vo.getAiQuota() == null && pkg.getAiQuota() != null) {
+                        vo.setAiQuota(pkg.getAiQuota());
+                    }
                 } catch (Exception ignored) {
                     // ignore
                 }
             }
+            vo.setFeatures(tenantFeatures);
             if (t.getExpireTime() != null) {
                 long days = ChronoUnit.DAYS.between(LocalDateTime.now(), t.getExpireTime());
                 vo.setDaysLeft(days);
@@ -278,6 +536,20 @@ public class TenantService {
             return vo;
         } finally {
             TenantContext.setSkipTenant(RoleConstants.isPlatformAdmin(TenantContext.getRole()));
+        }
+    }
+
+    private Long countTodayAiCalls(Long tenantId) {
+        if (tenantId == null) {
+            return 0L;
+        }
+        try {
+            Long n = jdbcTemplate.queryForObject(
+                    "select count(1) from ai_call_log where tenant_id=? and date(create_time)=curdate()",
+                    Long.class, tenantId);
+            return n == null ? 0L : n;
+        } catch (Exception e) {
+            return 0L;
         }
     }
 

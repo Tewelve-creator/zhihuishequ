@@ -7,6 +7,9 @@ export interface NoticeInfo {
   content?: string
   summary?: string
   targetTag?: string
+  targetRule?: string
+  aiAuditPass?: number
+  pushCount?: number
   publisherId?: number
   status?: number
   publishTime?: string

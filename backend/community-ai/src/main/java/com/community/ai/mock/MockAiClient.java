@@ -39,12 +39,13 @@ public class MockAiClient {
         }
         boolean human = question != null && (question.contains("人工") || question.contains("投诉"));
         if (human) {
-            resp.put("answer", "【Mock AI】已为您登记转人工，社区工作人员将尽快联系您。");
+            resp.put("answer", "好的，已帮您记下转人工需求，社区工作人员会尽快联系您～");
             resp.put("transferHuman", true);
         } else {
-            resp.put("answer", "【Mock AI社区助手】关于「" + nullToEmpty(question)
-                    + "」：建议先查看本社区知识库或联系物业前台。"
-                    + "（配置 ai.provider=http 与 ai.api-key 可切换真实大模型）");
+            // 友好兜底：不再输出生硬的「找不到资料 / Mock AI」话术
+            resp.put("answer", "这个问题我还不太确定具体制度条文呢～您可以换个说法再问，"
+                    + "或者说「帮我登记访客」「我要报修」「查一下欠费」，我直接帮您办。"
+                    + "（配置 AI_API_KEY 后可自动切换真实大模型）");
             resp.put("transferHuman", false);
         }
         resp.put("source", "mock_llm");
@@ -55,6 +56,7 @@ public class MockAiClient {
         String lower = nullToEmpty(imageUrl).toLowerCase(Locale.ROOT);
         String facility = "公共设施";
         String level = "中度";
+        String location = "小区公共区域";
         double confidence = 0.62;
         for (String[] rule : FACILITY_RULES) {
             if (lower.contains(rule[0])) {
@@ -64,12 +66,22 @@ public class MockAiClient {
                 break;
             }
         }
+        if (lower.contains("灯") || lower.contains("light")) location = "楼道/路灯附近";
+        else if (lower.contains("elev") || lower.contains("电梯")) location = "电梯轿厢/厅门";
+        else if (lower.contains("门") || lower.contains("door")) location = "单元门/楼道门窗";
+        else if (lower.contains("健身") || lower.contains("器材")) {
+            facility = "健身器材";
+            location = "社区健身区";
+            confidence = Math.max(confidence, 0.84);
+        }
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("facilityType", facility);
         resp.put("damageLevel", level);
+        resp.put("locationHint", location);
         resp.put("suggestTitle", facility + "报修");
-        resp.put("suggestDesc", "【Mock识图】疑似" + facility + "存在" + level + "损坏，建议尽快安排维修。图片：" + imageUrl);
+        resp.put("suggestDesc", "【Mock识图】疑似" + facility + "（" + location + "）存在" + level + "损坏，建议尽快安排维修。");
         resp.put("confidence", confidence);
+        resp.put("needManual", confidence < 0.85);
         resp.put("provider", "mock");
         return resp;
     }
@@ -82,13 +94,29 @@ public class MockAiClient {
                 hit++;
             }
         }
+        boolean anger = t.contains("怒") || t.contains("骂") || t.contains("威胁") || t.contains("吵");
+        boolean anxiety = t.contains("烦") || t.contains("焦虑") || t.contains("抑郁") || t.contains("崩溃") || t.contains("绝望");
         boolean negative = hit > 0;
-        double score = negative ? Math.max(-0.95, -0.45 - hit * 0.1) : 0.62;
+        boolean positive = t.contains("开心") || t.contains("感谢") || t.contains("满意");
+        String sentiment = negative ? "negative" : (positive ? "positive" : "neutral");
+        double score = negative ? Math.max(-0.95, -0.45 - hit * 0.1) : (positive ? 0.78 : 0.2);
+        List<String> tags = new ArrayList<>();
+        if (anger) tags.add("愤怒");
+        if (anxiety) tags.add("焦虑");
+        if (positive) tags.add("正面");
+        if (!negative && !positive) tags.add("中性");
+        if (negative && tags.isEmpty()) tags.add("负面");
+        boolean sharp = anger || hit >= 2 || score <= -0.7;
         Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("sentiment", negative ? "negative" : (t.contains("开心") || t.contains("感谢") ? "positive" : "neutral"));
+        resp.put("sentiment", sentiment);
         resp.put("score", score);
-        resp.put("needGrid", negative);
-        resp.put("advice", negative ? "【Mock】检测到负面情绪，已建议推送网格员轻调解" : "【Mock】情绪平稳，可继续AI陪伴疏导");
+        resp.put("emotionTags", String.join(",", tags));
+        resp.put("needGrid", sharp);
+        resp.put("advice", sharp
+                ? "检测到较尖锐负面情绪。建议：先深呼吸、避免当面争执；可先用文字冷静表达诉求。系统已可通知物业工作人员协助轻调解。"
+                : (negative
+                ? "情绪有些低落。建议：把具体事实和期望分开写清楚，先尝试友好沟通；需要时再请物业工作人员介入。"
+                : "情绪整体平稳。如需倾诉，可继续描述具体情况，或咨询智能管家获取制度说明。"));
         resp.put("provider", "mock");
         return resp;
     }
@@ -104,10 +132,10 @@ public class MockAiClient {
         String summary;
         if (c.isBlank()) {
             summary = "";
-        } else if (c.length() <= 40) {
+        } else if (c.length() <= 100) {
             summary = c;
         } else {
-            summary = "【Mock摘要】" + c.substring(0, 36) + "...";
+            summary = c.substring(0, 97) + "...";
         }
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("pass", hit.isEmpty());

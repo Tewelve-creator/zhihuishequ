@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.community.auth.dto.FlexibleLocalDateTimeDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -20,6 +22,7 @@ public class SysTenant {
     private Long packageId;
     /** 功能码 CSV */
     private String features;
+    @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
     private LocalDateTime expireTime;
     private Integer aiQuota;
     private Integer storageLimitMb;

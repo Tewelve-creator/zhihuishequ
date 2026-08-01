@@ -28,6 +28,7 @@
           <text class="tag" :class="tagClass(item.status)">{{ statusText(item.status) }}</text>
         </view>
         <view class="meta">
+          <text v-if="item.locationLabel || item.building">{{ item.locationLabel || [item.building, item.unit, item.roomNo].filter(Boolean).join('') }} · </text>
           <text>{{ item.facilityType || item.aiTag || '设施待识别' }}</text>
           <text v-if="item.damageLevel"> · {{ item.damageLevel }}</text>
         </view>
@@ -115,7 +116,7 @@ function goDetail(id) {
 <style lang="scss" scoped>
 $mint: #47b686;
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 28rpx;
   background: #f5f7f6;
   box-sizing: border-box;

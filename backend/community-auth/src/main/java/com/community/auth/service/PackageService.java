@@ -36,12 +36,12 @@ public class PackageService {
             FeatureCodes.AI_LOST_MATCH, "失物匹配",
             FeatureCodes.DATA_DASHBOARD, "数据大屏",
             FeatureCodes.DATA_EXPORT, "数据导出",
-            FeatureCodes.VENDOR_MANAGE, "服务商管理",
-            FeatureCodes.MULTI_COMMUNITY, "多社区管理"
+            FeatureCodes.VENDOR_MANAGE, "社区商超"
     );
 
     private final SysPackageMapper packageMapper;
     private final SysPackageFeatureMapper featureMapper;
+    private final OperLogService operLogService;
 
     public List<SysPackage> listPublic() {
         List<SysPackage> list = packageMapper.selectList(new LambdaQueryWrapper<SysPackage>()
@@ -107,6 +107,8 @@ public class PackageService {
             packageMapper.updateById(pkg);
         }
         replaceFeatures(pkg.getId(), req.getFeatureCodes());
+        operLogService.write("package", req.getId() == null ? "create" : "save",
+                String.format("套餐 %s(%s)", pkg.getName(), pkg.getCode()));
         return getById(pkg.getId());
     }
 

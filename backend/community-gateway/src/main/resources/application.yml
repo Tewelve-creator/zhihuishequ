@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: 8080
 
 spring:
@@ -6,13 +6,14 @@ spring:
     name: community-gateway
   data:
     redis:
-      host: ${REDIS_HOST:127.0.0.1}
+      host: ${REDIS_HOST:82.156.66.83}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       database: ${REDIS_DB:0}
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        server-addr: ${NACOS_ADDR:82.156.66.83:8848}
         fail-fast: false
         enabled: ${NACOS_ENABLED:false}
         register-enabled: ${NACOS_ENABLED:false}
@@ -32,7 +33,7 @@ spring:
         - id: repair
           uri: http://${SERVICES_HOST:127.0.0.1}:8083
           predicates:
-            - Path=/repair/**,/notice/**,/visit/**,/activity/**,/file/**,/appeal/**,/fee/**
+            - Path=/repair/**,/notice/**,/visit/**,/activity/**,/file/**,/appeal/**,/fee/**,/inspection/**,/equip/**,/parking/**,/resident-car/**,/store/**,/platform/**,/feedback/**,/neighbor-help/**
         - id: ai
           uri: http://${SERVICES_HOST:127.0.0.1}:8084
           predicates:
@@ -57,10 +58,10 @@ sa-token:
   is-read-header: true
   is-read-cookie: false
 
-# 套餐拦截：默认关闭（先做业务功能）；收费阶段改为 enabled=true
+# 套餐功能拦截：默认开启；本地调试可设 GATEWAY_PACKAGE_ENABLED=false
 gateway:
   package:
-    enabled: ${GATEWAY_PACKAGE_ENABLED:false}
+    enabled: ${GATEWAY_PACKAGE_ENABLED:true}
     extra-rules: ${GATEWAY_PACKAGE_EXTRA_RULES:}
 
 logging:

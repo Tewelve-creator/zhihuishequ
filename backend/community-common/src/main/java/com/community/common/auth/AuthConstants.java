@@ -18,4 +18,8 @@ public final class AuthConstants {
     public static final String H_CLIENT = "X-Client-Type";
     public static final String H_FEATURES = "X-Tenant-Features";
     public static final String H_TENANT_STATUS = "X-Tenant-Status";
+    /** 居民当前选中房屋 */
+    public static final String H_HOUSE = "X-House-Id";
+    /** 商超店铺 ID（商户端隔离） */
+    public static final String H_SHOP = "X-Shop-Id";
 }

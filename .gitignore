@@ -37,6 +37,9 @@ docs/diagrams/*.png
 **/nacos-data/
 **/logs/
 
+# 组员密钥/启动说明（仅本机，勿进仓库）
+docs/组员启动与密钥配置.md
+
 # 系统
 *.tmp
 *.bak
@@ -44,4 +47,12 @@ docs/diagrams/*.png
 *.pyc
 app/scripts/debug_*.png
 app/scripts/ref_*.png
+
+# 本地杂项 / 大文件（不进仓库）
+.codex-sheet-work/
+outputs/
+erl_crash.dump
+图片/
+*.pptx
+*.xlsx
 

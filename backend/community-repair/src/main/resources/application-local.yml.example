@@ -1,0 +1,23 @@
+# 复制为 application-local.yml 后填写（该文件已在 .gitignore）
+# 沙箱应用信息在开放平台 → 开发者中心 → 沙箱 → 沙箱应用（不是商家账号页）
+
+alipay:
+  enabled: true
+  sandbox: true
+  app-id: "9021000xxxxxxxxxx"
+  # 应用私钥（RSA2，去掉 -----BEGIN/END----- 与换行亦可）
+  private-key: "MIIEv..."
+  # 支付宝公钥（沙箱应用页「支付宝公钥」，不是应用公钥）
+  alipay-public-key: "MIIBIj..."
+  gateway: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  # 同步回跳：走网关 8080（已白名单免登录）
+  return-url: http://127.0.0.1:8080/fee/alipay/return
+  # 支付完成后跳转 App H5 结果页（物业费）
+  frontend-result-url: http://127.0.0.1:5180/#/pages/payment/result
+  # 商城支付完成后跳转
+  frontend-store-result-url: http://127.0.0.1:5180/#/pages/mall/pay-result
+  # 异步通知需公网；本地可先留空，靠 return + 查单落账
+  # notify-url: https://你的ngrok域名/fee/alipay/notify
+
+# 沙盒买家（支付时登录用，不必写入配置）：
+# 账号见开放平台沙箱「买家信息」，支付密码一般为 111111

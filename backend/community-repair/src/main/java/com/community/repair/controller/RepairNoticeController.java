@@ -8,8 +8,10 @@ import com.community.common.result.R;
 import com.community.common.tenant.TenantContext;
 import com.community.repair.entity.*;
 import com.community.repair.mapper.*;
+import com.community.repair.service.ActivityBizService;
 import com.community.repair.service.ContentAuditService;
 import com.community.repair.service.RepairNotifyService;
+import com.community.repair.service.RepairWorkOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +19,10 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,12 +34,13 @@ public class RepairNoticeController {
 
     private final RepairOrderMapper repairOrderMapper;
     private final NoticeInfoMapper noticeInfoMapper;
-    private final VisitorAppointmentMapper visitorMapper;
     private final CommunityActivityMapper activityMapper;
     private final ActivitySignupMapper signupMapper;
     private final EmotionAppealMapper appealMapper;
     private final ContentAuditService contentAuditService;
     private final RepairNotifyService repairNotifyService;
+    private final RepairWorkOrderService repairWorkOrderService;
+    private final ActivityBizService activityBizService;
     private final JdbcTemplate jdbcTemplate;
 
     // ---------- 报修（角色隔离：居民仅本人；物业本社区全部） ----------
@@ -61,13 +66,24 @@ public class RepairNoticeController {
         order.setId(null);
         order.setTenantId(tenantId);
         order.setUserId(userId);
+        if (!StringUtils.hasText(order.getOrderType())) {
+            order.setOrderType("repair");
+        }
+        if ("report".equalsIgnoreCase(order.getOrderType())) {
+            order.setOrderType("report");
+        } else {
+            order.setOrderType("repair");
+        }
         if (order.getStatus() == null) {
             order.setStatus("pending");
         }
-        if (StringUtils.hasText(order.getImageUrl()) && !StringUtils.hasText(order.getFacilityType())) {
+        if (StringUtils.hasText(order.getImageUrl())
+                && (!StringUtils.hasText(order.getFacilityType()) || !StringUtils.hasText(order.getDamageLevel()))) {
             try {
                 AiImageRepairResponse ai = contentAuditService.recognizeRepairImage(order.getImageUrl());
-                order.setFacilityType(ai.getFacilityType());
+                if (!StringUtils.hasText(order.getFacilityType())) {
+                    order.setFacilityType(ai.getFacilityType());
+                }
                 if (!StringUtils.hasText(order.getDamageLevel())) {
                     order.setDamageLevel(ai.getDamageLevel());
                 }
@@ -83,26 +99,79 @@ public class RepairNoticeController {
             } catch (Exception ignored) {
             }
         }
+        if (!StringUtils.hasText(order.getUrgency()) && StringUtils.hasText(order.getDamageLevel())) {
+            order.setUrgency(mapUrgency(order.getDamageLevel()));
+        }
+        if (!StringUtils.hasText(order.getUrgency())) {
+            order.setUrgency("中");
+        }
+        if (!StringUtils.hasText(order.getCategoryName()) && StringUtils.hasText(order.getFacilityType())) {
+            order.setCategoryName(order.getFacilityType());
+        }
         if (!StringUtils.hasText(order.getAiTag())
                 && (StringUtils.hasText(order.getFacilityType()) || StringUtils.hasText(order.getDamageLevel()))) {
             order.setAiTag(joinTag(order.getFacilityType(), order.getDamageLevel()));
         }
+        // 结构化位置：房屋档案 + locationHint（楼道/电梯厅等）
+        repairWorkOrderService.fillOrderLocation(order, order.getHouseId(), order.getLocationHint());
         order.setCreateTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
         repairOrderMapper.insert(order);
+        // 回写识图日志关联工单，便于物业端追溯 AI 识别结果
+        if (order.getId() != null && StringUtils.hasText(order.getImageUrl())) {
+            try {
+                jdbcTemplate.update(
+                        "update ai_image_log set order_id=? where image_url=? and (order_id is null or order_id=0) "
+                                + "order by id desc limit 5",
+                        order.getId(), order.getImageUrl());
+            } catch (Exception ignored) {
+            }
+        }
+        // 已取消自动分派：新工单保持未指派，由物业在「工单分派」手动指派
         repairNotifyService.notifyStaffNewOrder(order);
         return R.ok(order);
+    }
+
+    private static String mapUrgency(String damageLevel) {
+        if (damageLevel == null) return "中";
+        if (damageLevel.contains("严重") || damageLevel.contains("重度") || damageLevel.contains("高")) return "高";
+        if (damageLevel.contains("轻微") || damageLevel.contains("轻度") || damageLevel.contains("低")) return "低";
+        return "中";
     }
 
     @GetMapping("/repair/orders")
     public R<List<RepairOrder>> listRepair(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Boolean mine) {
+            @RequestParam(required = false) Boolean mine,
+            @RequestParam(required = false) String orderType,
+            @RequestParam(required = false) String urgency,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Boolean unassigned,
+            @RequestParam(required = false) Boolean emotionAlert) {
         Long tenantId = requireTenant();
         LambdaQueryWrapper<RepairOrder> q = new LambdaQueryWrapper<RepairOrder>()
                 .eq(RepairOrder::getTenantId, tenantId)
                 .eq(status != null, RepairOrder::getStatus, status)
                 .orderByDesc(RepairOrder::getId);
+        if (StringUtils.hasText(orderType)) {
+            if ("repair".equalsIgnoreCase(orderType)) {
+                q.and(w -> w.eq(RepairOrder::getOrderType, "repair").or().isNull(RepairOrder::getOrderType));
+            } else {
+                q.eq(RepairOrder::getOrderType, orderType);
+            }
+        }
+        if (StringUtils.hasText(urgency)) {
+            q.and(w -> w.eq(RepairOrder::getUrgency, urgency).or().eq(RepairOrder::getDamageLevel, urgency));
+        }
+        if (categoryId != null) {
+            q.eq(RepairOrder::getCategoryId, categoryId);
+        }
+        if (Boolean.TRUE.equals(unassigned)) {
+            q.isNull(RepairOrder::getHandlerId);
+        }
+        if (Boolean.TRUE.equals(emotionAlert)) {
+            q.isNotNull(RepairOrder::getEmotionCaseId);
+        }
         // 居民：仅本人；物业/网格：本社区全部（mine=true 时仅看指派给我的）
         if (!RoleConstants.isTenantStaff(TenantContext.getRole())
                 && !RoleConstants.isPlatformAdmin(TenantContext.getRole())) {
@@ -120,7 +189,38 @@ public class RepairNoticeController {
         }
         List<RepairOrder> list = repairOrderMapper.selectList(q);
         fillHandlerNames(list);
+        enrichOrders(list);
         return R.ok(list);
+    }
+
+    private void enrichOrders(List<RepairOrder> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Long tid = TenantContext.getTenantId();
+        for (RepairOrder o : list) {
+            String ot = o.getOrderType() == null ? "repair" : o.getOrderType();
+            o.setOrderType(ot);
+            o.setOrderTypeLabel("report".equals(ot) ? "报事" : "报修");
+            o.setEmotionAlert(o.getEmotionCaseId() != null);
+            o.setFromFeedback(o.getFeedbackId() != null);
+            if (!StringUtils.hasText(o.getUrgency()) && StringUtils.hasText(o.getDamageLevel())) {
+                o.setUrgency(mapUrgency(o.getDamageLevel()));
+            }
+            try {
+                if (StringUtils.hasText(o.getImageUrl()) && tid != null) {
+                    Integer n = jdbcTemplate.queryForObject(
+                            "select count(1) from ai_image_log where tenant_id=? and image_url=?",
+                            Integer.class, tid, o.getImageUrl());
+                    o.setAiImageLogCount(n == null ? 0 : n);
+                } else {
+                    o.setAiImageLogCount(0);
+                }
+            } catch (Exception e) {
+                o.setAiImageLogCount(0);
+            }
+            repairWorkOrderService.enrichLocationDisplay(o);
+        }
     }
 
     @GetMapping("/repair/orders/{id}")
@@ -128,6 +228,7 @@ public class RepairNoticeController {
         RepairOrder o = requireOrderInTenant(id);
         assertCanViewOrder(o);
         fillHandlerNames(Collections.singletonList(o));
+        enrichOrders(Collections.singletonList(o));
         return R.ok(o);
     }
 
@@ -211,6 +312,15 @@ public class RepairNoticeController {
         }
         repairOrderMapper.updateById(o);
         return R.ok(o);
+    }
+
+    /** 物业删除报修工单 */
+    @DeleteMapping("/repair/orders/{id}")
+    public R<Void> deleteRepair(@PathVariable Long id) {
+        assertStaff();
+        RepairOrder o = requireOrderInTenant(id);
+        repairOrderMapper.deleteById(o.getId());
+        return R.ok();
     }
 
     private Long requireTenant() {
@@ -317,6 +427,52 @@ public class RepairNoticeController {
         return s.isEmpty() ? def : s;
     }
 
+    // ---------- 报修分类 / 分派规则 / 统计 ----------
+    @GetMapping("/repair/categories")
+    public R<List<Map<String, Object>>> listCategories(
+            @RequestParam(required = false) String orderType,
+            @RequestParam(required = false) Boolean enabledOnly) {
+        return R.ok(repairWorkOrderService.listCategories(orderType, enabledOnly));
+    }
+
+    @PostMapping("/repair/categories")
+    public R<Map<String, Object>> saveCategory(@RequestBody Map<String, Object> body) {
+        return R.ok(repairWorkOrderService.saveCategory(body));
+    }
+
+    @DeleteMapping("/repair/categories/{id}")
+    public R<Void> deleteCategory(@PathVariable Long id) {
+        repairWorkOrderService.deleteCategory(id);
+        return R.ok();
+    }
+
+    @GetMapping("/repair/stats")
+    public R<Map<String, Object>> repairStats(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        return R.ok(repairWorkOrderService.stats(startDate, endDate));
+    }
+
+    /** 情绪调解触发报事工单（AI 服务或内部调用） */
+    @PostMapping("/repair/orders/from-emotion")
+    public R<Map<String, Object>> fromEmotion(@RequestBody Map<String, Object> body) {
+        requireTenant();
+        Long caseId = body.get("emotionCaseId") == null ? null : Long.valueOf(String.valueOf(body.get("emotionCaseId")));
+        Long userId = body.get("userId") == null ? TenantContext.getUserId()
+                : Long.valueOf(String.valueOf(body.get("userId")));
+        Long orderId = repairWorkOrderService.createReportFromEmotion(
+                caseId,
+                userId,
+                body.get("title") == null ? null : String.valueOf(body.get("title")),
+                body.get("content") == null ? null : String.valueOf(body.get("content")),
+                body.get("sentiment") == null ? null : String.valueOf(body.get("sentiment")),
+                body.get("emotionTags") == null ? null : String.valueOf(body.get("emotionTags")),
+                body.get("urgency") == null ? null : String.valueOf(body.get("urgency")));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("orderId", orderId);
+        return R.ok(m);
+    }
+
     // ---------- 公告（强制敏感词审核；仅物业管理员可发布/删除；支持定时发布） ----------
     @PostMapping("/notice")
     public R<NoticeInfo> createNotice(@RequestBody NoticeInfo notice) {
@@ -330,16 +486,28 @@ public class RepairNoticeController {
         notice.setId(null);
         notice.setTenantId(TenantContext.getTenantId());
         notice.setPublisherId(TenantContext.getUserId());
+        notice.setAiAuditPass(1);
         if (notice.getStatus() == null) {
             notice.setStatus(1);
         }
-        if (notice.getSummary() == null) {
-            notice.setSummary(String.valueOf(audit.get("summary")));
+        Object summaryObj = audit.get("summary");
+        if (!StringUtils.hasText(notice.getSummary()) && summaryObj != null) {
+            String summary = String.valueOf(summaryObj);
+            if (summary.length() > 100) {
+                summary = summary.substring(0, 97) + "...";
+            }
+            notice.setSummary(summary);
+        }
+        if (StringUtils.hasText(notice.getSummary()) && notice.getSummary().length() > 100) {
+            notice.setSummary(notice.getSummary().substring(0, 97) + "...");
         }
         LocalDateTime now = LocalDateTime.now();
         notice.setCreateTime(now);
         if (notice.getPublishTime() == null) {
             notice.setPublishTime(now);
+        }
+        if (notice.getPushCount() == null) {
+            notice.setPushCount(0);
         }
         noticeInfoMapper.insert(notice);
         fillPublishState(Collections.singletonList(notice));
@@ -444,84 +612,159 @@ public class RepairNoticeController {
         }
     }
 
-    // ---------- 访客预约 ----------
-    @PostMapping("/visit")
-    public R<VisitorAppointment> createVisit(@RequestBody VisitorAppointment v) {
-        v.setId(null);
-        v.setTenantId(TenantContext.getTenantId());
-        v.setUserId(TenantContext.getUserId());
-        if (v.getStatus() == null) {
-            v.setStatus("pending");
-        }
-        if (v.getVisitorCount() == null) {
-            v.setVisitorCount(1);
-        }
-        v.setCreateTime(LocalDateTime.now());
-        visitorMapper.insert(v);
-        return R.ok(v);
-    }
-
-    @GetMapping("/visit")
-    public R<List<VisitorAppointment>> listVisit(@RequestParam(required = false) String status) {
-        String role = TenantContext.getRole();
-        LambdaQueryWrapper<VisitorAppointment> q = new LambdaQueryWrapper<VisitorAppointment>()
-                .eq(status != null, VisitorAppointment::getStatus, status)
-                .orderByDesc(VisitorAppointment::getId);
-        if ("resident".equals(role)) {
-            q.eq(VisitorAppointment::getUserId, TenantContext.getUserId());
-        }
-        return R.ok(visitorMapper.selectList(q));
-    }
-
-    @PutMapping("/visit/{id}/audit")
-    public R<VisitorAppointment> auditVisit(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        assertStaff();
-        VisitorAppointment v = visitorMapper.selectById(id);
-        if (v == null) {
-            throw new BizException("预约不存在");
-        }
-        String st = body.getOrDefault("status", "approved");
-        v.setStatus(st);
-        v.setRemark(body.get("remark"));
-        visitorMapper.updateById(v);
-        return R.ok(v);
-    }
-
-    @PutMapping("/visit/{id}/checkin")
-    public R<VisitorAppointment> checkin(@PathVariable Long id) {
-        assertStaff();
-        VisitorAppointment v = visitorMapper.selectById(id);
-        if (v == null) {
-            throw new BizException("预约不存在");
-        }
-        v.setStatus("checked_in");
-        visitorMapper.updateById(v);
-        return R.ok(v);
-    }
-
     // ---------- 活动 + 报名 ----------
     @PostMapping("/activity")
     public R<CommunityActivity> createActivity(@RequestBody CommunityActivity a) {
         assertPropertyAdmin("网格员不可发布活动");
-        contentAuditService.audit((a.getTitle() == null ? "" : a.getTitle()) + " " +
+        Map<String, Object> audit = contentAuditService.audit((a.getTitle() == null ? "" : a.getTitle()) + " " +
                 (a.getContent() == null ? "" : a.getContent()));
         a.setId(null);
         a.setTenantId(TenantContext.getTenantId());
         a.setPublisherId(TenantContext.getUserId());
         a.setSignedCount(0);
+        a.setAiAuditPass(1);
+        if (a.getPushCount() == null) {
+            a.setPushCount(0);
+        }
+        if (!StringUtils.hasText(a.getSummary()) && audit.get("summary") != null) {
+            String summary = String.valueOf(audit.get("summary"));
+            if (summary.length() > 100) {
+                summary = summary.substring(0, 97) + "...";
+            }
+            a.setSummary(summary);
+        }
+        if (StringUtils.hasText(a.getSummary()) && a.getSummary().length() > 100) {
+            a.setSummary(a.getSummary().substring(0, 97) + "...");
+        }
         if (a.getStatus() == null) {
             a.setStatus(1);
         }
         a.setCreateTime(LocalDateTime.now());
+        if (a.getAllowCancel() == null) {
+            a.setAllowCancel(1);
+        }
+        if (a.getStartTime() != null && a.getEndTime() != null && a.getEndTime().isBefore(a.getStartTime())) {
+            throw new BizException(400, "结束时间不能早于开始时间");
+        }
         activityMapper.insert(a);
         return R.ok(a);
     }
 
     @GetMapping("/activity")
-    public R<List<CommunityActivity>> listActivity() {
-        return R.ok(activityMapper.selectList(new LambdaQueryWrapper<CommunityActivity>()
-                .eq(CommunityActivity::getStatus, 1)
-                .orderByDesc(CommunityActivity::getId)));
+    public R<List<Map<String, Object>>> listActivity(
+            @RequestParam(defaultValue = "false") boolean all,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword) {
+        boolean staff = RoleConstants.isTenantStaff(TenantContext.getRole())
+                || RoleConstants.isPlatformAdmin(TenantContext.getRole());
+        LambdaQueryWrapper<CommunityActivity> q = new LambdaQueryWrapper<CommunityActivity>()
+                .orderByDesc(CommunityActivity::getId);
+        if (!(all && staff)) {
+            q.eq(CommunityActivity::getStatus, 1);
+        }
+        if (StringUtils.hasText(category)) {
+            q.eq(CommunityActivity::getCategory, category);
+        }
+        if (StringUtils.hasText(keyword)) {
+            q.and(w -> w.like(CommunityActivity::getTitle, keyword)
+                    .or().like(CommunityActivity::getContent, keyword)
+                    .or().like(CommunityActivity::getTags, keyword));
+        }
+        List<CommunityActivity> list = activityMapper.selectList(q);
+        List<Map<String, Object>> out = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        for (CommunityActivity a : list) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", a.getId());
+            m.put("title", a.getTitle());
+            m.put("category", a.getCategory());
+            m.put("coverUrl", a.getCoverUrl());
+            m.put("content", a.getContent());
+            m.put("summary", a.getSummary());
+            m.put("tags", a.getTags());
+            m.put("targetRule", a.getTargetRule());
+            m.put("location", a.getLocation());
+            m.put("startTime", a.getStartTime() == null ? null : a.getStartTime().toString().replace('T', ' '));
+            m.put("endTime", a.getEndTime() == null ? null : a.getEndTime().toString().replace('T', ' '));
+            m.put("signupEnd", a.getSignupEnd() == null ? null : a.getSignupEnd().toString().replace('T', ' '));
+            m.put("maxPeople", a.getMaxPeople());
+            m.put("allowCancel", a.getAllowCancel() == null ? 1 : a.getAllowCancel());
+            m.put("signedCount", a.getSignedCount());
+            m.put("status", a.getStatus());
+            m.put("statusLabel", a.getStatus() != null && a.getStatus() == 1 ? "上架" : "下架");
+            m.put("aiAuditPass", a.getAiAuditPass());
+            m.put("pushCount", a.getPushCount());
+            String phase = "未开始";
+            if (a.getEndTime() != null && !a.getEndTime().isAfter(now)) phase = "已结束";
+            else if (a.getStartTime() != null && !a.getStartTime().isAfter(now)) phase = "进行中";
+            m.put("phase", phase);
+            m.put("createTime", a.getCreateTime() == null ? null : a.getCreateTime().toString().replace('T', ' '));
+            out.add(m);
+        }
+        return R.ok(out);
+    }
+
+    @PutMapping("/activity/{id}")
+    public R<CommunityActivity> updateActivity(@PathVariable Long id, @RequestBody CommunityActivity body) {
+        assertPropertyAdmin("网格员不可编辑活动");
+        CommunityActivity a = activityMapper.selectById(id);
+        if (a == null || !Objects.equals(a.getTenantId(), TenantContext.getTenantId())) {
+            throw new BizException("活动不存在");
+        }
+        if (StringUtils.hasText(body.getTitle()) || body.getContent() != null) {
+            String title = StringUtils.hasText(body.getTitle()) ? body.getTitle() : a.getTitle();
+            String content = body.getContent() != null ? body.getContent() : a.getContent();
+            Map<String, Object> audit = contentAuditService.audit(
+                    (title == null ? "" : title) + " " + (content == null ? "" : content));
+            a.setAiAuditPass(1);
+            if (!StringUtils.hasText(body.getSummary()) && audit.get("summary") != null) {
+                String summary = String.valueOf(audit.get("summary"));
+                if (summary.length() > 100) summary = summary.substring(0, 97) + "...";
+                a.setSummary(summary);
+            }
+        }
+        if (StringUtils.hasText(body.getTitle())) a.setTitle(body.getTitle());
+        if (body.getCategory() != null) a.setCategory(body.getCategory());
+        if (body.getCoverUrl() != null) a.setCoverUrl(body.getCoverUrl());
+        if (body.getContent() != null) a.setContent(body.getContent());
+        if (body.getSummary() != null) {
+            String summary = body.getSummary();
+            if (summary.length() > 100) summary = summary.substring(0, 97) + "...";
+            a.setSummary(summary);
+        }
+        if (body.getTags() != null) a.setTags(body.getTags());
+        if (body.getTargetRule() != null) a.setTargetRule(body.getTargetRule());
+        if (body.getLocation() != null) a.setLocation(body.getLocation());
+        if (body.getStartTime() != null) a.setStartTime(body.getStartTime());
+        if (body.getEndTime() != null) a.setEndTime(body.getEndTime());
+        if (body.getSignupEnd() != null) a.setSignupEnd(body.getSignupEnd());
+        if (body.getMaxPeople() != null) a.setMaxPeople(body.getMaxPeople());
+        if (body.getAllowCancel() != null) a.setAllowCancel(body.getAllowCancel());
+        if (body.getStatus() != null) a.setStatus(body.getStatus());
+        if (a.getStartTime() != null && a.getEndTime() != null && a.getEndTime().isBefore(a.getStartTime())) {
+            throw new BizException(400, "结束时间不能早于开始时间");
+        }
+        activityMapper.updateById(a);
+        return R.ok(a);
+    }
+
+    @PutMapping("/activity/{id}/status")
+    public R<CommunityActivity> activityStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        assertPropertyAdmin("网格员不可上下架活动");
+        CommunityActivity a = activityMapper.selectById(id);
+        if (a == null || !Objects.equals(a.getTenantId(), TenantContext.getTenantId())) {
+            throw new BizException("活动不存在");
+        }
+        a.setStatus(body.get("status") == null ? 0 : Integer.parseInt(String.valueOf(body.get("status"))));
+        activityMapper.updateById(a);
+        return R.ok(a);
+    }
+
+    @DeleteMapping("/activity/{id}")
+    public R<Void> deleteActivity(@PathVariable Long id) {
+        assertPropertyAdmin("网格员不可删除活动");
+        activityBizService.deleteActivity(id);
+        return R.ok();
     }
 
     @PostMapping("/activity/{id}/signup")
@@ -530,6 +773,9 @@ public class RepairNoticeController {
         CommunityActivity act = activityMapper.selectById(id);
         if (act == null || act.getStatus() == null || act.getStatus() != 1) {
             throw new BizException("活动不存在或已下架");
+        }
+        if (act.getSignupEnd() != null && act.getSignupEnd().isBefore(LocalDateTime.now())) {
+            throw new BizException("报名已截止");
         }
         if (act.getMaxPeople() != null && act.getSignedCount() != null
                 && act.getSignedCount() >= act.getMaxPeople()) {
@@ -548,11 +794,30 @@ public class RepairNoticeController {
         s.setUserId(TenantContext.getUserId());
         s.setUserName(body == null ? null : body.getUserName());
         s.setPhone(body == null ? null : body.getPhone());
+        if (!StringUtils.hasText(s.getUserName()) || !StringUtils.hasText(s.getPhone())) {
+            Long uid = TenantContext.getUserId();
+            if (uid != null) {
+                try {
+                    // sys_user 无 real_name，仅用 nickname + phone
+                    Map<String, Object> u = jdbcTemplate.queryForMap(
+                            "select nickname, phone from sys_user where id=?", uid);
+                    if (!StringUtils.hasText(s.getUserName()) && u.get("nickname") != null) {
+                        s.setUserName(String.valueOf(u.get("nickname")).trim());
+                    }
+                    if (!StringUtils.hasText(s.getPhone()) && u.get("phone") != null) {
+                        s.setPhone(String.valueOf(u.get("phone")).trim());
+                    }
+                } catch (Exception e) {
+                    // ignore lookup failure; still allow signup with body fields
+                }
+            }
+        }
         s.setStatus("signed");
         s.setCreateTime(LocalDateTime.now());
         signupMapper.insert(s);
         act.setSignedCount((act.getSignedCount() == null ? 0 : act.getSignedCount()) + 1);
         activityMapper.updateById(act);
+        activityBizService.syncSignupToSchedule(id, TenantContext.getUserId());
         return R.ok(s);
     }
 
@@ -560,8 +825,24 @@ public class RepairNoticeController {
     public R<List<ActivitySignup>> signups(@PathVariable Long id) {
         return R.ok(signupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, id)
-                .eq(ActivitySignup::getStatus, "signed")
+                .in(ActivitySignup::getStatus, "signed", "checked")
                 .orderByDesc(ActivitySignup::getId)));
+    }
+
+    @GetMapping("/activity/signups")
+    public R<List<Map<String, Object>>> allSignups(
+            @RequestParam(required = false) Long activityId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword) {
+        return R.ok(activityBizService.listAllSignups(activityId, status, keyword));
+    }
+
+    @PutMapping("/activity/signup/{signupId}/cancel")
+    public R<Void> cancelSignupAdmin(
+            @PathVariable Long signupId,
+            @RequestBody(required = false) Map<String, String> body) {
+        activityBizService.cancelSignup(signupId, body == null ? null : body.get("remark"));
+        return R.ok();
     }
 
     @PutMapping("/activity/signup/{signupId}/check")
@@ -575,37 +856,114 @@ public class RepairNoticeController {
         return R.ok(s);
     }
 
-    // ---------- 情绪诉求（网格员处理） ----------
-    @PostMapping("/appeal")
-    public R<EmotionAppeal> createAppeal(@RequestBody EmotionAppeal a) {
-        a.setId(null);
-        a.setTenantId(TenantContext.getTenantId());
-        a.setUserId(TenantContext.getUserId());
-        if (a.getStatus() == null) {
-            a.setStatus("pending");
-        }
-        a.setCreateTime(LocalDateTime.now());
-        appealMapper.insert(a);
-        return R.ok(a);
+    @GetMapping("/activity/categories")
+    public R<List<Map<String, Object>>> activityCategories(
+            @RequestParam(required = false) Boolean enabledOnly) {
+        return R.ok(activityBizService.listCategories(enabledOnly));
     }
 
-    @GetMapping("/appeal")
-    public R<List<EmotionAppeal>> listAppeal(@RequestParam(required = false) String status) {
-        return R.ok(appealMapper.selectList(new LambdaQueryWrapper<EmotionAppeal>()
-                .eq(status != null, EmotionAppeal::getStatus, status)
-                .orderByDesc(EmotionAppeal::getId)));
+    @PostMapping("/activity/categories")
+    public R<Map<String, Object>> saveActivityCategory(@RequestBody Map<String, Object> body) {
+        return R.ok(activityBizService.saveCategory(body));
+    }
+
+    @DeleteMapping("/activity/categories/{id}")
+    public R<Void> deleteActivityCategory(@PathVariable Long id) {
+        activityBizService.deleteCategory(id);
+        return R.ok();
+    }
+
+    @GetMapping("/activity/stats")
+    public R<Map<String, Object>> activityStats() {
+        return R.ok(activityBizService.stats());
+    }
+
+    @GetMapping("/activity/platform/list")
+    public R<List<Map<String, Object>>> platformActivityList(
+            @RequestParam(required = false) Long tenantId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String category) {
+        return R.ok(activityBizService.listPlatformActivities(tenantId, keyword, category));
+    }
+
+    @PutMapping("/activity/platform/{id}/status")
+    public R<Map<String, Object>> platformActivityStatus(
+            @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        int status = body.get("status") == null ? 1 : Integer.parseInt(String.valueOf(body.get("status")));
+        return R.ok(activityBizService.platformSetActivityStatus(id, status));
+    }
+
+    @PostMapping("/activity/{id}/target-push")
+    public R<Map<String, Object>> activityTargetPush(
+            @PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        String rule = body == null || body.get("targetRule") == null ? null : String.valueOf(body.get("targetRule"));
+        return R.ok(activityBizService.targetPush(id, rule));
+    }
+
+    // ---------- 历史 AI 倾诉工单（与朋友圈动态分离；动态见 AppealController） ----------
+    @GetMapping("/appeal/tickets")
+    public R<List<Map<String, Object>>> listAppealTickets(@RequestParam(required = false) String status) {
+        boolean staff = RoleConstants.isTenantStaff(TenantContext.getRole())
+                || RoleConstants.isPlatformAdmin(TenantContext.getRole());
+        LambdaQueryWrapper<EmotionAppeal> q = new LambdaQueryWrapper<EmotionAppeal>()
+                .in(EmotionAppeal::getStatus, List.of("pending", "processing", "done"))
+                .eq(status != null && !status.isBlank(), EmotionAppeal::getStatus, status)
+                .orderByDesc(EmotionAppeal::getId);
+        if (!staff) {
+            q.eq(EmotionAppeal::getUserId, TenantContext.getUserId());
+        }
+        List<EmotionAppeal> list = appealMapper.selectList(q);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (EmotionAppeal a : list) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", a.getId());
+            m.put("userId", a.getUserId());
+            m.put("content", a.getContent());
+            m.put("sentiment", a.getSentiment());
+            m.put("score", a.getScore());
+            m.put("status", a.getStatus());
+            m.put("statusLabel", appealStatusLabel(a.getStatus()));
+            m.put("handleRemark", a.getHandleRemark());
+            m.put("handlerId", a.getHandlerId());
+            m.put("createTime", a.getCreateTime() == null ? null : a.getCreateTime().toString().replace('T', ' '));
+            String name = null;
+            try {
+                name = jdbcTemplate.queryForObject("select nickname from sys_user where id=?", String.class, a.getUserId());
+            } catch (Exception ignored) {
+            }
+            m.put("userName", name == null ? ("住户#" + a.getUserId()) : name);
+            out.add(m);
+        }
+        return R.ok(out);
     }
 
     @PutMapping("/appeal/{id}/handle")
     public R<EmotionAppeal> handleAppeal(@PathVariable Long id, @RequestBody EmotionAppeal body) {
+        if (!RoleConstants.isTenantStaff(TenantContext.getRole())
+                && !RoleConstants.isPlatformAdmin(TenantContext.getRole())) {
+            throw new BizException(403, "仅物业人员可处理");
+        }
         EmotionAppeal a = appealMapper.selectById(id);
         if (a == null) {
             throw new BizException("诉求不存在");
         }
-        a.setStatus(body.getStatus() == null ? "processing" : body.getStatus());
+        String st = body.getStatus() == null ? "processing" : body.getStatus();
+        if ("done".equals(st) || "closed".equals(st) || "resolved".equals(st)) st = "done";
+        if ("pending".equals(st)) st = "pending";
+        if (!"pending".equals(st) && !"processing".equals(st) && !"done".equals(st)) {
+            st = "processing";
+        }
+        a.setStatus(st);
         a.setHandleRemark(body.getHandleRemark());
         a.setHandlerId(TenantContext.getUserId());
         appealMapper.updateById(a);
         return R.ok(a);
+    }
+
+    private String appealStatusLabel(String s) {
+        if ("pending".equals(s)) return "待处理";
+        if ("processing".equals(s)) return "处理中";
+        if ("done".equals(s) || "closed".equals(s) || "resolved".equals(s)) return "已完结";
+        return s == null ? "待处理" : s;
     }
 }

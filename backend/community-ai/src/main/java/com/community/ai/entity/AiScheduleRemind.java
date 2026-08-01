@@ -20,4 +20,10 @@ public class AiScheduleRemind {
     private String status;
     private LocalDateTime createTime;
     private LocalDateTime sentTime;
+    private String sourceType;
+    private Long sourceId;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
+    private String jumpPath;
+    private Integer conflictFlag;
 }

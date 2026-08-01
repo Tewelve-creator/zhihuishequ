@@ -24,12 +24,51 @@
       "style": { "navigationBarTitleText": "注册", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
     {
-      "path": "pages/service/index",
-      "style": { "navigationBarTitleText": "服务管理", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+      "path": "pages/mall/index",
+      "style": { "navigationBarTitleText": "社区商城", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mall/shop",
+      "style": {
+        "navigationBarTitleText": "店铺",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#47b686",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/mall/cart",
+      "style": { "navigationBarTitleText": "购物车", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mall/checkout",
+      "style": { "navigationBarTitleText": "确认订单", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mall/orders",
+      "style": { "navigationBarTitleText": "我的订单", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mall/order-detail",
+      "style": { "navigationBarTitleText": "订单详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/mall/pay-result",
+      "style": { "navigationBarTitleText": "支付结果", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/store-orders",
+      "style": { "navigationBarTitleText": "超市订单", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
     {
       "path": "pages/ai/chat",
-      "style": { "navigationBarTitleText": "智能管家", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+      "style": {
+        "navigationBarTitleText": "智能管家",
+        "navigationBarBackgroundColor": "#f3f6f4",
+        "navigationBarTextStyle": "black",
+        "backgroundColor": "#f3f6f4",
+        "disableScroll": true
+      }
     },
     {
       "path": "pages/mine/index",
@@ -48,6 +87,14 @@
     {
       "path": "pages/repair/create",
       "style": { "navigationBarTitleText": "拍照报修", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/schedule/index",
+      "style": { "navigationBarTitleText": "AI智能日程", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/emotion/index",
+      "style": { "navigationBarTitleText": "情绪轻调解", "navigationBarBackgroundColor": "#f5f7f6", "navigationBarTextStyle": "black" }
     },
     {
       "path": "pages/repair/detail",
@@ -78,8 +125,36 @@
       "style": { "navigationBarTitleText": "预约访客", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
     {
+      "path": "pages/visitor/pass",
+      "style": { "navigationBarTitleText": "访客通行", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/visitor/share",
+      "style": { "navigationBarTitleText": "转发通行链接", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
       "path": "pages/payment/index",
-      "style": { "navigationBarTitleText": "物业缴费", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+      "style": { "navigationBarTitleText": "我的缴费", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/payment/detail",
+      "style": { "navigationBarTitleText": "账单详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/payment/confirm",
+      "style": { "navigationBarTitleText": "确认缴费", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/payment/result",
+      "style": { "navigationBarTitleText": "支付结果", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/payment/records",
+      "style": { "navigationBarTitleText": "缴费记录", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/payment/receipt",
+      "style": { "navigationBarTitleText": "电子凭证", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
     {
       "path": "pages/package/index",
@@ -95,7 +170,13 @@
     },
     {
       "path": "pages/appeal/index",
-      "style": { "navigationBarTitleText": "邻里倾诉", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+      "style": {
+        "navigationBarTitleText": "邻里圈",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#47b686",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#ededed"
+      }
     },
     {
       "path": "pages/lost/index",
@@ -110,6 +191,38 @@
       "style": { "navigationBarTitleText": "巡查上报", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
     {
+      "path": "pages/staff/todo",
+      "style": { "navigationBarTitleText": "待办汇总", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/inspection",
+      "style": { "navigationBarTitleText": "巡检任务", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/inspection-detail",
+      "style": { "navigationBarTitleText": "任务详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/inspection-checkin",
+      "style": { "navigationBarTitleText": "点位打卡", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/inspection-hazards",
+      "style": { "navigationBarTitleText": "巡检隐患", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/equip",
+      "style": { "navigationBarTitleText": "设备维保", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/equip-detail",
+      "style": { "navigationBarTitleText": "设备详情", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/equip-record",
+      "style": { "navigationBarTitleText": "登记维保", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
       "path": "pages/staff/dashboard",
       "style": { "navigationBarTitleText": "数据大屏", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
@@ -118,8 +231,32 @@
       "style": { "navigationBarTitleText": "修改密码", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     },
     {
+      "path": "pages/mine/profile",
+      "style": { "navigationBarTitleText": "个人资料", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
       "path": "pages/mine/settings",
       "style": { "navigationBarTitleText": "系统设置", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/house/bind",
+      "style": { "navigationBarTitleText": "房屋绑定", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/house/cars",
+      "style": { "navigationBarTitleText": "我的车辆", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/feedback/index",
+      "style": { "navigationBarTitleText": "意见反馈", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/neighbor/index",
+      "style": { "navigationBarTitleText": "邻里互助", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
+    },
+    {
+      "path": "pages/staff/resident-cars",
+      "style": { "navigationBarTitleText": "车辆台账", "navigationBarBackgroundColor": "#47b686", "navigationBarTextStyle": "white" }
     }
   ],
   "globalStyle": {
@@ -150,8 +287,14 @@
         "selectedIconPath": "static/tab-butler-v4-active.png"
       },
       {
-        "pagePath": "pages/service/index",
-        "text": "服务管理",
+        "pagePath": "pages/appeal/index",
+        "text": "邻里圈",
+        "iconPath": "static/tab-appeal-v4.png",
+        "selectedIconPath": "static/tab-appeal-v4-active.png"
+      },
+      {
+        "pagePath": "pages/mall/index",
+        "text": "社区商城",
         "iconPath": "static/tab-mall-v4.png",
         "selectedIconPath": "static/tab-mall-v4-active.png"
       },

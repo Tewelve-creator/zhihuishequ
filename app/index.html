@@ -4,11 +4,32 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover"
     />
     <link rel="icon" href="/favicon.svg" />
     <title>AI 智慧社区</title>
     <style>
+      html,
+      body {
+        margin: 0;
+        box-sizing: border-box;
+        min-height: 100%;
+        min-height: 100dvh;
+      }
+      /* 真机：高度用 dvh；安全区交给导航/Tab，避免 #app 再垫一层导致叠层错乱 */
+      @media screen and (max-width: 459px) {
+        html,
+        body,
+        #app {
+          box-sizing: border-box;
+          min-height: 100%;
+          min-height: 100dvh;
+          width: 100%;
+        }
+        #app {
+          overflow-x: hidden;
+        }
+      }
       /* 桌面端：375×667 手机竖屏预览框 */
       @media screen and (min-width: 460px) {
         html,

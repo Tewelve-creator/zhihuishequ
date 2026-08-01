@@ -83,11 +83,19 @@ public class ContentAuditService {
     }
 
     private Map<String, Object> localAudit(String content) {
-        List<String> words;
+        List<String> words = new ArrayList<>();
         try {
-            words = jdbcTemplate.queryForList("select word from sys_sensitive_word", String.class);
+            words.addAll(jdbcTemplate.queryForList("select word from sys_sensitive_word", String.class));
         } catch (Exception e) {
-            words = List.of("赌博", "色情", "诈骗");
+            words.addAll(List.of("赌博", "色情", "诈骗"));
+        }
+        Long tid = TenantContext.getTenantId();
+        if (tid != null) {
+            try {
+                words.addAll(jdbcTemplate.queryForList(
+                        "select word from ai_sensitive_word where tenant_id=?", String.class, tid));
+            } catch (Exception ignored) {
+            }
         }
         List<String> hit = new ArrayList<>();
         for (String w : words) {
@@ -98,7 +106,8 @@ public class ContentAuditService {
         Map<String, Object> result = new HashMap<>();
         result.put("pass", hit.isEmpty());
         result.put("hitWords", hit);
-        result.put("summary", content.length() > 50 ? content.substring(0, 50) + "..." : content);
+        String summary = content.length() > 100 ? content.substring(0, 97) + "..." : content;
+        result.put("summary", summary);
         result.put("source", "local");
         if (!hit.isEmpty()) {
             throw new BizException(400, "内容含敏感词，禁止发布：" + String.join(",", hit));

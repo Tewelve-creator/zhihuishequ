@@ -4,6 +4,7 @@ import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.stp.StpInterface;
 import com.community.auth.mapper.SysMenuMapper;
 import com.community.auth.mapper.SysUserRoleMapper;
+import com.community.common.constant.RoleConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +31,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                         "/auth/sms",
                         "/auth/sms/send",
                         "/auth/tenants/public",
+                        "/auth/tenants/resolve-by-phone",
                         "/auth/packages/public",
                         "/error",
                         "/actuator/**"
@@ -42,6 +44,11 @@ public class SaTokenConfig implements WebMvcConfigurer {
             @Override
             public List<String> getPermissionList(Object loginId, String loginType) {
                 Long userId = Long.parseLong(String.valueOf(loginId));
+                List<String> roles = userRoleMapper.selectRoleCodesByUserId(userId);
+                if (roles != null && roles.stream().anyMatch(RoleConstants::isPlatformAdmin)) {
+                    // 平台运营：放行全部权限码
+                    return Collections.singletonList("*");
+                }
                 List<String> perms = menuMapper.selectPermsByUserId(userId);
                 return perms == null ? Collections.emptyList() : perms;
             }

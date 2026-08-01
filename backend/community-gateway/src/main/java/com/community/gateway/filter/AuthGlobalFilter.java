@@ -38,9 +38,15 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/auth/sms",
             "/auth/sms/send",
             "/auth/tenants/public",
+            "/auth/tenants/resolve-by-phone",
             "/auth/packages/public",
             "/saas/packages/public",
             "/file/static",
+            "/fee/alipay/notify",
+            "/fee/alipay/return",
+            "/visit/pass/info",
+            "/visit/pass/qr",
+            "/visit/pass/verify",
             "/actuator"
     );
 
@@ -78,6 +84,9 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
                     } else if (lu.getTenantId() != null) {
                         builder.header(AuthConstants.H_TENANT, String.valueOf(lu.getTenantId()));
                         builder.header(AuthConstants.H_SKIP, "0");
+                    }
+                    if (lu.getShopId() != null) {
+                        builder.header(AuthConstants.H_SHOP, String.valueOf(lu.getShopId()));
                     }
                     return chain.filter(exchange.mutate().request(builder.build()).build());
                 })

@@ -16,13 +16,19 @@ import java.util.List;
 public class LoginUser implements Serializable {
     private Long userId;
     private Long tenantId;
+    private Long shopId;
     private String phone;
     private String nickname;
+    /** 头像相对路径，如 /file/static/{tenantId}/xxx.jpg */
+    private String avatar;
     private String role;
     private String clientType;
     private List<String> roleCodes = new ArrayList<>();
     private List<String> permissions = new ArrayList<>();
     private String features = "";
+    /** 套餐编码 free/basic/pro/flagship */
+    private String packageCode = "";
+    private String packageName = "";
     private String tenantStatus = "active";
     private String expireTime;
 
@@ -43,6 +49,7 @@ public class LoginUser implements Serializable {
     public void fillTenantContext() {
         TenantContext.setUserId(userId);
         TenantContext.setTenantId(tenantId);
+        TenantContext.setShopId(shopId);
         TenantContext.setRole(role);
         TenantContext.setClientType(clientType);
         TenantContext.setSkipTenant(isPlatformAdmin());

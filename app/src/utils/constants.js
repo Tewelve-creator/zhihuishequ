@@ -21,8 +21,7 @@ export const FEATURE_LABELS = {
   ai_lost_match: '失物 AI 匹配',
   data_dashboard: '数据大屏',
   data_export: '数据导出',
-  vendor_manage: '服务商管理',
-  multi_community: '多社区管理'
+  vendor_manage: '社区商超'
 }
 
 /** 演示社区列表（注册/登录选择，与 schema 一致） */
@@ -65,6 +64,9 @@ export function statusText(status) {
     approved: '已通过',
     rejected: '已拒绝',
     checked: '已核销',
+    checked_in: '已核销',
+    expired: '已过期',
+    cancelled: '已撤销',
     paid: '已支付',
     unpaid: '待支付'
   }

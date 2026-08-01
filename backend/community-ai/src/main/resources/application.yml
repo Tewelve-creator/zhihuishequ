@@ -1,23 +1,28 @@
-﻿server:
+server:
   port: 8084
 
 spring:
   application:
     name: community-ai
+  # 可选加载本地密钥（application-local.yml 已在 .gitignore）
+  config:
+    import: optional:classpath:application-local.yml
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    # 远程开发机：82.156.66.83（可用环境变量覆盖）
+    url: jdbc:mysql://${MYSQL_HOST:82.156.66.83}:3306/smart_community?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root}
+    password: ${MYSQL_PASSWORD:zxc123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
-      host: ${REDIS_HOST:127.0.0.1}
+      host: ${REDIS_HOST:82.156.66.83}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       database: ${REDIS_DB:0}
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        server-addr: ${NACOS_ADDR:82.156.66.83:8848}
         fail-fast: false
         enabled: ${NACOS_ENABLED:false}
         register-enabled: ${NACOS_ENABLED:false}
@@ -27,15 +32,21 @@ spring:
         dashboard: ${SENTINEL_DASHBOARD:}
         port: 8719
 
-# AI：默认 Mock；切 http 并配置 AI_API_KEY 即走真实第三方（密钥勿写入仓库）
+# AI：provider=auto 时有 AI_API_KEY 走真实 LLM，否则 Mock（密钥勿写入仓库）
 ai:
-  provider: ${AI_PROVIDER:mock}
+  provider: ${AI_PROVIDER:auto}
   api-url: ${AI_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}
   api-key: ${AI_API_KEY:}
   model: ${AI_MODEL:qwen3.6-plus}
   http-timeout-ms: ${AI_HTTP_TIMEOUT_MS:30000}
   # 识图时从网关拉取本地 /file/static 转 base64（云端访问不到本机）
   internal-file-base: ${AI_INTERNAL_FILE_BASE:http://127.0.0.1:8080}
+  # 智能管家调用业务服务（直连 repair，透传租户头）
+  repair-base-url: ${AI_REPAIR_BASE_URL:http://127.0.0.1:8083}
+  # RAG：低于阈值则不强制套用知识库，改由大模型常识作答并附温馨提示
+  rag:
+    min-score: ${AI_RAG_MIN_SCORE:0.32}
+    top-k: ${AI_RAG_TOP_K:3}
   daily-quota: ${AI_DAILY_QUOTA:200}
   sentinel:
     qps: ${AI_SENTINEL_QPS:20}

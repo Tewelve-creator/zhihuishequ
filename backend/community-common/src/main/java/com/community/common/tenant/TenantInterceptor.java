@@ -15,6 +15,8 @@ public class TenantInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String tenant = request.getHeader(AuthConstants.H_TENANT);
         String user = request.getHeader(AuthConstants.H_USER);
+        String house = request.getHeader(AuthConstants.H_HOUSE);
+        String shop = request.getHeader(AuthConstants.H_SHOP);
         String role = request.getHeader(AuthConstants.H_ROLE);
         String skip = request.getHeader(AuthConstants.H_SKIP);
         String client = request.getHeader(AuthConstants.H_CLIENT);
@@ -26,6 +28,12 @@ public class TenantInterceptor implements HandlerInterceptor {
         }
         if (user != null && !user.isBlank()) {
             TenantContext.setUserId(Long.parseLong(user));
+        }
+        if (house != null && !house.isBlank()) {
+            TenantContext.setHouseId(Long.parseLong(house));
+        }
+        if (shop != null && !shop.isBlank()) {
+            TenantContext.setShopId(Long.parseLong(shop));
         }
         if (role != null && !role.isBlank()) {
             TenantContext.setRole(role);

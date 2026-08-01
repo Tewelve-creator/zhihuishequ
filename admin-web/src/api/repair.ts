@@ -19,12 +19,44 @@ export interface RepairOrder {
   finishTime?: string
   createTime?: string
   updateTime?: string
+  orderType?: string
+  orderTypeLabel?: string
+  urgency?: string
+  categoryId?: number
+  categoryName?: string
+  emotionCaseId?: number
+  emotionTags?: string
+  sentiment?: string
+  emotionAlert?: boolean
+  aiImageLogCount?: number
+  houseId?: number
+  building?: string
+  unit?: string
+  roomNo?: string
+  /** 展示用位置，如 2栋1单元101 */
+  locationLabel?: string
 }
 
-export function listRepairOrders(status?: string) {
-  return request.get('/repair/orders', {
-    params: status ? { status } : undefined,
-  }) as Promise<RepairOrder[]>
+export interface RepairCategory {
+  id?: number
+  name: string
+  orderType?: string
+  urgencyDefault?: string
+  sortNo?: number
+  status?: number
+  remark?: string
+}
+
+export function listRepairOrders(params?: {
+  status?: string
+  orderType?: string
+  urgency?: string
+  categoryId?: number
+  unassigned?: boolean
+  emotionAlert?: boolean
+  mine?: boolean
+}) {
+  return request.get('/repair/orders', { params }) as Promise<RepairOrder[]>
 }
 
 export function acceptRepairOrder(id: number) {
@@ -41,4 +73,38 @@ export function finishRepairOrder(id: number, body?: Partial<RepairOrder>) {
 
 export function handleRepairOrder(id: number, body: Partial<RepairOrder>) {
   return request.put(`/repair/orders/${id}/handle`, body) as Promise<RepairOrder>
+}
+
+export function deleteRepairOrder(id: number) {
+  return request.delete(`/repair/orders/${id}`) as Promise<void>
+}
+
+export function listRepairCategories(params?: { orderType?: string; enabledOnly?: boolean }) {
+  return request.get('/repair/categories', { params }) as Promise<RepairCategory[]>
+}
+
+export function saveRepairCategory(body: Partial<RepairCategory>) {
+  return request.post('/repair/categories', body) as Promise<RepairCategory>
+}
+
+export function deleteRepairCategory(id: number) {
+  return request.delete(`/repair/categories/${id}`)
+}
+
+export function getRepairStats(params?: { startDate?: string; endDate?: string }) {
+  return request.get('/repair/stats', { params }) as Promise<{
+    total: number
+    done: number
+    pending: number
+    processing: number
+    repairCount: number
+    reportCount: number
+    finishRate: number
+    avgHandleHours: number
+    startDate?: string
+    endDate?: string
+    byCategory: Array<{ name: string; value: number }>
+    byUrgency: Array<{ name: string; value: number }>
+    byType: Array<{ name: string; value: number }>
+  }>
 }

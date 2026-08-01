@@ -13,6 +13,10 @@
           <text class="tag">{{ statusText(item.status) }}</text>
         </view>
         <view class="row">
+          <text class="muted">位置</text>
+          <text>{{ item.locationLabel || [item.building, item.unit, item.roomNo].filter(Boolean).join('') || '-' }}</text>
+        </view>
+        <view class="row">
           <text class="muted">故障类型</text>
           <text>{{ item.facilityType || '-' }}</text>
         </view>
@@ -159,7 +163,7 @@ async function doFinish() {
 <style lang="scss" scoped>
 $mint: #47b686;
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 28rpx;
   background: #f5f7f6;
   box-sizing: border-box;

@@ -5,16 +5,23 @@ CREATE TABLE IF NOT EXISTS visitor_appointment (
   id            BIGINT PRIMARY KEY AUTO_INCREMENT,
   tenant_id     BIGINT NOT NULL,
   user_id       BIGINT,
+  house_id      BIGINT,
   visitor_name  VARCHAR(64),
   visitor_phone VARCHAR(32),
-  id_card       VARCHAR(32),
+  plate_no      VARCHAR(20),
+  drive_flag    TINYINT NOT NULL DEFAULT 0 COMMENT '1驾车来访',
+  id_card       VARCHAR(32) COMMENT '已废弃，不再采集',
   visit_reason  VARCHAR(255),
   visit_time    DATETIME,
+  expire_time   DATETIME COMMENT '通行有效截止',
   visitor_count INT DEFAULT 1,
-  status        VARCHAR(32) DEFAULT 'pending',
+  status        VARCHAR(32) DEFAULT 'approved' COMMENT 'approved/checked_in/expired/cancelled',
+  checkin_time  DATETIME,
+  checkin_by    BIGINT,
   remark        VARCHAR(255),
   create_time   DATETIME,
-  KEY idx_tenant (tenant_id)
+  KEY idx_tenant (tenant_id),
+  KEY idx_tenant_status (tenant_id, status)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS community_activity (

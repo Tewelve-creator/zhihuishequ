@@ -11,7 +11,8 @@ export function exportExcel<T extends Record<string, unknown>>(
 ) {
   const user = useUserStore()
   if (user.portal === 'property' && !user.can(FEATURES.DATA_EXPORT)) {
-    ElMessage.warning('当前套餐未开放 Excel 导出，请升级或续费')
+    user.openFeatureLimit(FEATURES.DATA_EXPORT)
+    ElMessage.warning('当前套餐未开放 Excel 导出')
     return
   }
   const ws = XLSX.utils.json_to_sheet(rows)

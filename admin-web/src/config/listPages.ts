@@ -382,20 +382,6 @@ export const listPages: Record<string, ListPageConfig> = {
       { no: 'BX2026071402', title: '门禁刷卡失败', room: '公区', priority: '中', status: '已完成' },
     ],
   },
-  '/property/fee': {
-    title: '缴费管理',
-    columns: [
-      { prop: 'room', label: '房屋' },
-      { prop: 'owner', label: '缴费人', width: 100 },
-      { prop: 'item', label: '费用项', width: 100 },
-      { prop: 'amount', label: '金额', width: 100 },
-      { prop: 'status', label: '状态', width: 90, tag: true },
-    ],
-    rows: [
-      { room: '1栋502', owner: '王芳', item: '物业费', amount: 274.4, status: '未缴' },
-      { room: '2栋301', owner: '李强', item: '停车费', amount: 200, status: '已缴' },
-    ],
-  },
   '/property/visitor': {
     title: '临时访客',
     showDateRange: true,
@@ -407,8 +393,8 @@ export const listPages: Record<string, ListPageConfig> = {
       { prop: 'status', label: '状态', width: 90, tag: true },
     ],
     rows: [
-      { name: '快递小哥', phone: '13011112222', host: '1栋502王芳', visitAt: '2026-07-17 09:20', status: '已放行' },
-      { name: '张女士', phone: '13122223333', host: '2栋301李强', visitAt: '2026-07-17 10:05', status: '待审核' },
+      { name: '快递小哥', phone: '13011112222', host: '1栋502王芳', visitAt: '2026-07-17 09:20', status: '已核销' },
+      { name: '张女士', phone: '13122223333', host: '2栋301李强', visitAt: '2026-07-17 10:05', status: '已通过' },
     ],
   },
   '/property/inspection': {
@@ -439,20 +425,6 @@ export const listPages: Record<string, ListPageConfig> = {
       { device: '1号电梯', plan: '季度维保', nextDate: '2026-08-01', vendor: '通力电梯', status: '待维保' },
       { device: '消防水泵', plan: '半年维保', nextDate: '2026-09-15', vendor: '消防维保公司', status: '正常' },
       { device: '监控系统', plan: '年度维保', nextDate: '2026-12-01', vendor: '海康服务商', status: '正常' },
-    ],
-  },
-  '/property/receipt': {
-    title: '收款通知',
-    columns: [
-      { prop: 'title', label: '通知标题' },
-      { prop: 'scope', label: '推送范围' },
-      { prop: 'amountHint', label: '费用说明', width: 140 },
-      { prop: 'sendAt', label: '发送时间', width: 160 },
-      { prop: 'status', label: '状态', width: 90, tag: true },
-    ],
-    rows: [
-      { title: '2026年7月物业费缴纳提醒', scope: '全小区业主', amountHint: '按房屋面积计费', sendAt: '2026-07-01 09:00', status: '已发送' },
-      { title: '停车费欠费催缴', scope: '欠费车位业主', amountHint: '逾期费用', sendAt: '2026-07-10 10:00', status: '已发送' },
     ],
   },
   '/property/notice': {

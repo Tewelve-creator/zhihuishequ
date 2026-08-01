@@ -15,7 +15,7 @@
       </view>
       <view class="stat">
         <text class="num">{{ stats.visit }}</text>
-        <text class="label">待审访客</text>
+        <text class="label">待核销访客</text>
       </view>
       <view class="stat">
         <text class="num">{{ stats.appeal }}</text>
@@ -56,7 +56,7 @@ onShow(async () => {
     listNotice().catch(() => [])
   ])
   stats.repair = (repairs || []).length
-  stats.visit = (visits || []).filter((v) => v.status === 'pending').length
+  stats.visit = (visits || []).filter((v) => v.status === 'approved').length
   stats.appeal = (appeals || []).filter((a) => a.status === 'pending' || !a.status).length
   stats.notice = Array.isArray(notices) ? notices.length : notices?.records?.length || 0
 })

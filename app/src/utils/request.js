@@ -47,6 +47,7 @@ export function request(options = {}) {
   const tenantId = resolveLoginTenantId()
   const userId = uni.getStorageSync('userId')
   const role = uni.getStorageSync('role')
+  const houseId = uni.getStorageSync('currentHouseId')
   const headers = {
     'Content-Type': 'application/json',
     ...header
@@ -63,6 +64,9 @@ export function request(options = {}) {
   }
   if (role) {
     headers['X-User-Role'] = String(role)
+  }
+  if (houseId !== '' && houseId !== null && houseId !== undefined) {
+    headers['X-House-Id'] = String(houseId)
   }
 
   return new Promise((resolve, reject) => {

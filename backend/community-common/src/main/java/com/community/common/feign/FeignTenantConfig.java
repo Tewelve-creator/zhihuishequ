@@ -19,12 +19,16 @@ public class FeignTenantConfig {
         return template -> {
             Long tid = TenantContext.getTenantId();
             Long uid = TenantContext.getUserId();
+            Long hid = TenantContext.getHouseId();
             String role = TenantContext.getRole();
             if (tid != null) {
                 template.header(AuthConstants.H_TENANT, String.valueOf(tid));
             }
             if (uid != null) {
                 template.header(AuthConstants.H_USER, String.valueOf(uid));
+            }
+            if (hid != null) {
+                template.header(AuthConstants.H_HOUSE, String.valueOf(hid));
             }
             if (role != null) {
                 template.header(AuthConstants.H_ROLE, role);

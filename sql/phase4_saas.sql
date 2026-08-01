@@ -89,15 +89,15 @@ ALTER TABLE sys_tenant ADD COLUMN storage_limit_mb INT DEFAULT 1024 AFTER ai_quo
 -- 四级套餐
 INSERT INTO sys_package (id, name, code, price_month, price_quarter, price_year, ai_quota, status, sort_no, remark)
 VALUES
-(1, '免费版',   'free',       0,    0,     0,    0,    1, 1, '到期降级保底：仅公告+报修'),
+(1, '免费版',   'free',       0,    0,     0,   20,    1, 1, '到期降级保底：仅公告+报修'),
 (2, '基础版',   'basic',     99,  269,   999,  100,   1, 2, '基础便民+简易AI'),
 (3, '专业版',   'pro',      299,  799,  2999,  500,   1, 3, '全部AI+数据大屏+导出'),
-(4, '旗舰版',   'flagship', 599, 1599,  5999, 2000,   1, 4, '多社区+旗舰配额')
+(4, '旗舰版',   'flagship', 599, 1599,  5999, 2000,   1, 4, '社区商超+旗舰配额')
 ON DUPLICATE KEY UPDATE
   name=VALUES(name), price_month=VALUES(price_month), price_quarter=VALUES(price_quarter),
   price_year=VALUES(price_year), ai_quota=VALUES(ai_quota), remark=VALUES(remark), status=1;
 
--- 重建功能码（先清再插，保证 free 仅基础能力）
+-- 重建功能码（先清再插，保证 free 仅基础能力；商超仅旗舰）
 DELETE FROM sys_package_feature WHERE package_id IN (1,2,3,4);
 
 INSERT INTO sys_package_feature (package_id, feature_code, feature_name) VALUES
@@ -118,7 +118,6 @@ INSERT INTO sys_package_feature (package_id, feature_code, feature_name) VALUES
 (3,'ai_lost_match','失物匹配'),
 (3,'data_dashboard','数据大屏'),
 (3,'data_export','数据导出'),
-(3,'vendor_manage','服务商管理'),
 -- flagship
 (4,'basic_repair','基础报修'),
 (4,'basic_notice','基础公告'),
@@ -128,12 +127,11 @@ INSERT INTO sys_package_feature (package_id, feature_code, feature_name) VALUES
 (4,'ai_lost_match','失物匹配'),
 (4,'data_dashboard','数据大屏'),
 (4,'data_export','数据导出'),
-(4,'vendor_manage','服务商管理'),
-(4,'multi_community','多社区管理');
+(4,'vendor_manage','社区商超');
 
 -- 演示租户：租户1专业版；租户2基础版
 UPDATE sys_tenant SET package_id=3,
-  features='basic_repair,basic_notice,ai_chat,ai_image_repair,ai_emotion,ai_lost_match,data_dashboard,data_export,vendor_manage',
+  features='basic_repair,basic_notice,ai_chat,ai_image_repair,ai_emotion,ai_lost_match,data_dashboard,data_export',
   expire_time=DATE_ADD(NOW(), INTERVAL 90 DAY), ai_quota=500, status='active'
 WHERE id=1;
 

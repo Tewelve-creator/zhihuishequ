@@ -2,6 +2,10 @@
   <view class="page page-safe">
     <view class="card">
       <view class="section-title">系统设置</view>
+      <view class="mi" @click="nav('/pages/mine/profile')">
+        <text>个人资料</text>
+        <text class="ar">›</text>
+      </view>
       <view class="mi" @click="toggleFont">
         <text>大字模式</text>
         <text class="v">{{ store.largeFont ? '已开启' : '已关闭' }}</text>
