@@ -1,16 +1,10 @@
 pipeline {
     agent any
     stages {
-        stage('拉取代码') {
-            steps {
-                git url: 'https://gitee.com/zhihuo_1/zhihuishequ.git',
-                    branch: 'master'
-            }
-        }
-
         stage('Maven打包') {
             steps {
                 sh '''
+cd backend
 /var/jenkins_home/apache-maven-3.9.9/bin/mvn \
 -s /var/jenkins_home/apache-maven-3.9.9/conf/settings.xml \
 -B clean package -Dmaven.test.skip=true
@@ -21,6 +15,8 @@ pipeline {
         stage('构建&启动容器') {
             steps {
                 sh '''
+# 如果Dockerfile在backend目录，也要cd backend
+cd backend
 docker build -t zhihuishequ .
 docker stop zhihuishequ || true
 docker rm zhihuishequ || true
