@@ -34,8 +34,8 @@ pipeline {
 
         stage('Maven打包') {
             steps {
-                dir("${BACKEND}") {
-                    sh 'mvn -B clean package -Dmaven.test.skip=true'
+                dir("backend") {
+                    sh '/usr/share/maven/bin/mvn -B clean package -Dmaven.test.skip=true'
                 }
             }
         }
@@ -88,7 +88,7 @@ start_one() {
   echo "started ${NAME} pid=$(cat ${DEPLOY_DIR}/${NAME}.pid) port=${PORT}"
 }
 
-# 顺序：业务 → 网关
+# 启动顺序：业务服务先行，最后网关
 start_one auth   community-auth.jar   8081
 start_one repair community-repair.jar 8083
 start_one ai     community-ai.jar     8084
@@ -106,10 +106,10 @@ ss -lntp | grep -E '8080|8081|8083|8084' || netstat -lntp | grep -E '8080|8081|8
 
     post {
         success {
-            echo '部署成功：网关 http://服务器IP:8080'
+            echo '✅ 部署成功：网关 http://82.156.66.83:8080'
         }
         failure {
-            echo '部署失败：请看本 Job 控制台日志，以及 /opt/zhihuishequ/logs/*.log'
+            echo '❌ 部署失败：请看本 Job 控制台日志，以及 /opt/zhihuishequ/logs/*.log'
         }
     }
 }
