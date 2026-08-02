@@ -12,8 +12,7 @@ pipeline {
         stage('Maven打包') {
             steps {
                 sh '''
-                    # 这里替换成真实项目目录
-                    cd zhihuishequ-admin
+                    cd backend
                     mvn clean package -Dmaven.test.skip=true
                 '''
             }
@@ -21,8 +20,11 @@ pipeline {
         stage('启动服务') {
             steps {
                 sh '''
-                    cd zhihuishequ-admin
-                    # 后续写docker构建、重启容器命令
+                    cd backend
+                    # =====================
+                    # 后续在这里补充docker构建镜像、停止旧容器、启动新容器命令
+                    # =====================
+                    echo "等待补充部署脚本"
                 '''
             }
         }
