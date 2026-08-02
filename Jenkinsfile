@@ -1,37 +1,35 @@
 pipeline {
     agent any
-    tools {
-        maven 'Maven3.9'
-    }
     stages {
-        stage('拉取代码') {
+        stage('代码拉取') {
             steps {
-                git url: 'https://gitee.com/zhihuo_1/zhihuishequ.git', branch: 'master'
+                echo "Git自动拉取代码"
             }
         }
-        stage('Maven打包') {
+        stage('编译打包所有微服务') {
             steps {
-                sh '''
-                    cd backend
-                    mvn clean package -Dmaven.test.skip=true
-                '''
+                sh 'mvn clean package -Dmaven.test.skip=true'
             }
         }
-        stage('启动服务') {
+        stage('构建镜像+启动所有微服务') {
             steps {
                 sh '''
-                    cd backend
-                    # =====================
-                    # 后续在这里补充docker构建镜像、停止旧容器、启动新容器命令
-                    # =====================
-                    echo "等待补充部署脚本"
+                # 重启全部容器
+                docker-compose down
+                docker-compose up -d --build
                 '''
             }
         }
     }
     post {
-        always {
-            echo '构建结束'
+        success {
+            echo """
+部署完成！
+网关地址：http://82.156.66.83:8080
+认证服务：8081
+SaaS租户服务：8082
+报修服务：8083
+            """
         }
     }
 }
