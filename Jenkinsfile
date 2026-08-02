@@ -2,22 +2,15 @@
  * 智慧社区后端 Jenkins 流水线（适配本仓库结构）
  *
  * 前提：
- * - Jenkins 已装 JDK17、Maven、Git；若用 Docker 部署再装 Docker
+ * - Jenkins 容器内已安装 JDK17、Maven；
  * - Job 的「源码管理」指向 https://gitee.com/zhihuo_1/zhihuishequ.git 分支 master
- *   （或下面 stage 里自己 git）
  * - 中间件已用远程：MySQL/Redis/MinIO（见各服务 application.yml）
  * - AI Key 建议在 Jenkins 凭据里配环境变量 AI_API_KEY，不要写进仓库
  *
- * 说明：根目录没有 Dockerfile，默认用 jar 部署；不要用「单容器 8080」那种模板。
+ * 说明：jar包部署，多微服务依次启动
  */
 pipeline {
     agent any
-
-    tools {
-        // 若 Jenkins 全局工具名不同，改成你机器上的名字，或删掉 tools 段改用系统 PATH
-        // jdk 'jdk17'
-        // maven 'maven3'
-    }
 
     environment {
         BACKEND = 'backend'
@@ -34,9 +27,7 @@ pipeline {
     stages {
         stage('拉取代码') {
             steps {
-                // 若 Job 已配置 SCM，可改成：checkout scm
-                git branch: 'master',
-                    url: 'https://gitee.com/zhihuo_1/zhihuishequ.git'
+                checkout scm
                 echo "代码拉取完成: ${env.GIT_COMMIT}"
             }
         }
