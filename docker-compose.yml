@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   mysql:
     image: mysql:8.0
@@ -32,6 +33,57 @@ services:
       - "9001:9001"
     volumes:
       - minio-data:/data
+
+  gateway:
+    build: ./backend/community-gateway
+    container_name: zhihuishequ-gateway
+    ports:
+      - "8080:8080"
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  auth:
+    build: ./backend/community-auth
+    container_name: zhihuishequ-auth
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  ai:
+    build: ./backend/community-ai
+    container_name: zhihuishequ-ai
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  repair:
+    build: ./backend/community-repair
+    container_name: zhihuishequ-repair
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  order:
+    build: ./backend/community-order
+    container_name: zhihuishequ-order
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  stats:
+    build: ./backend/community-stats
+    container_name: zhihuishequ-stats
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  saas:
+    build: ./backend/community-saas
+    container_name: zhihuishequ-saas
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
 volumes:
   minio-data:
