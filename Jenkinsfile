@@ -8,15 +8,17 @@ pipeline {
         }
         stage('编译打包所有微服务') {
             steps {
-                sh 'mvn clean package -Dmaven.test.skip=true'
+                sh '''
+                cd backend
+                mvn clean package -Dmaven.test.skip=true
+                '''
             }
         }
         stage('构建镜像+启动所有微服务') {
             steps {
                 sh '''
-                # 重启全部容器
-                docker-compose down
-                docker-compose up -d --build
+                docker compose down
+                docker compose up -d --build
                 '''
             }
         }
