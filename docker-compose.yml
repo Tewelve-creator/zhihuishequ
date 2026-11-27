@@ -22,7 +22,7 @@ services:
 
   # 图片对象存储（报修现场图等）。控制台 http://localhost:9001  账号 minioadmin/minioadmin
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: community-minio
     command: server /data --console-address ":9001"
     environment:
