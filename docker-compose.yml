@@ -38,7 +38,7 @@ services:
     build: ./backend/community-gateway
     container_name: zhihuishequ-gateway
     ports:
-      - "8080:8080"
+      - "8082:8080"
     restart: always
     environment:
       SPRING_PROFILES_ACTIVE: prod
