@@ -85,5 +85,16 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
 
+  # 新增：前端管理后台 Nginx 服务
+  admin-web:
+    image: nginx:latest
+    container_name: admin-web
+    ports:
+      - "8081:80"
+    volumes:
+      - ./admin-web/dist:/usr/share/nginx/html
+      - ./admin-web/nginx.conf:/etc/nginx/conf.d/default.conf
+    restart: always
+
 volumes:
   minio-data:
